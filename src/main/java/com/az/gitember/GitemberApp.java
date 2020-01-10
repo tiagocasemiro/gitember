@@ -94,23 +94,6 @@ public class GitemberApp extends Application {
 
 
     public static void applySettings(GitemberSettings newGitemberSettings) {
-        // TODO
-        /*if (newGitemberSettings.isUseProxy()) {
-            System.setProperty(Const.SYSTEM_PROXY_HOST, newGitemberSettings.getProxyServer());
-            System.setProperty(Const.SYSTEM_PROXY_PORT, newGitemberSettings.getProxyPort());
-            if (newGitemberSettings.isUseProxyAuth()) {
-                System.setProperty(Const.SYSTEM_PROXY_USER, newGitemberSettings.getProxyUserName());
-                System.setProperty(Const.SYSTEM_PROXY_PASSWORD, newGitemberSettings.getProxyPassword());
-            } else {
-                System.clearProperty(Const.SYSTEM_PROXY_USER);
-                System.clearProperty(Const.SYSTEM_PROXY_PASSWORD);
-            }
-        } else {
-            System.clearProperty(Const.SYSTEM_PROXY_HOST);
-            System.clearProperty(Const.SYSTEM_PROXY_PORT);
-            System.clearProperty(Const.SYSTEM_PROXY_USER);
-            System.clearProperty(Const.SYSTEM_PROXY_PASSWORD);
-        }*/
 
     }
 

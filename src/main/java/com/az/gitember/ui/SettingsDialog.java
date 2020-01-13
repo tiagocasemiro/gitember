@@ -1,17 +1,14 @@
 package com.az.gitember.ui;
 
-import com.az.gitember.GitemberApp;
 import com.az.gitember.service.Context;
 import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
-import org.apache.commons.io.FilenameUtils;
 import org.eclipse.jgit.lib.Config;
 import org.eclipse.jgit.lib.ConfigConstants;
 import org.eclipse.jgit.lib.Constants;
-import org.eclipse.jgit.lib.Repository;
 
 import java.io.InputStream;
 import java.util.logging.Level;
@@ -99,19 +96,10 @@ public class SettingsDialog extends Dialog<SettingsModel>  {
 
     private void bind() {
 
-
-
-        /*if (GitemberApp.getRepositoryService() != null && GitemberApp.getRepositoryService().getRepository() != null) {
-
-
-        }*/
-
-
-        Repository repo = Context.getGitemberService().getRepository();
-        Config config = repo.getConfig();
-
-        String projectHameFolder =  repo.getDirectory().getAbsolutePath();
+        Config config = Context.getGitemberService().getRepoConfig();
+        String projectHameFolder =  Context.getGitemberService().getRepoFolder();
         String projectName = projectHameFolder;
+
         String name = config.getString(ConfigConstants.CONFIG_USER_SECTION, null, ConfigConstants.CONFIG_KEY_NAME);
         String email = config.getString(ConfigConstants.CONFIG_USER_SECTION, null, ConfigConstants.CONFIG_KEY_EMAIL);
         String projectRemoteUrl =  config.getString(ConfigConstants.CONFIG_KEY_REMOTE, Constants.DEFAULT_REMOTE_NAME, ConfigConstants.CONFIG_KEY_URL);
@@ -135,17 +123,7 @@ public class SettingsDialog extends Dialog<SettingsModel>  {
         Bindings.bindBidirectional(this.projectPwd.textProperty(), settingsModel.projectPwdProperty());
         Bindings.bindBidirectional(this.rememberMeChkb.selectedProperty(), settingsModel.rememberMeProperty());
 
-        ////////////////////// proxy
-
-        Bindings.bindBidirectional(proxyUseChkb.selectedProperty(), settingsModel.useProxyProperty());
-        Bindings.bindBidirectional(proxyServerTxt.textProperty(), settingsModel.proxyServerProperty());
-        Bindings.bindBidirectional(proxyPortTxt.textProperty(), settingsModel.proxyPortProperty());
-        Bindings.bindBidirectional(proxyUserNameTxt.textProperty(), settingsModel.proxyUserNameProperty());
-        Bindings.bindBidirectional(proxyPwd.textProperty(), settingsModel.proxyPasswordProperty());
         proxyUseChkb.setSelected(false);
-        settingsModel.useProxyProperty().setValue(false);
-
-
 
     }
 

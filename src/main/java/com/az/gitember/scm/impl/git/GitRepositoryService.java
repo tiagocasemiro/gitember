@@ -88,7 +88,31 @@ public class GitRepositoryService {
 
 
     /**
-     * Get repotitory. TOTO Incorrect, because for settings. But ok for now.
+     * Create new git repository.
+     *
+     * @param absPath path to repository.
+     */
+    public void createRepository(final String absPath) throws Exception {
+        try (final Git git = Git.init()
+                .setDirectory(new File(absPath))
+                .call()) {
+            git.commit().setMessage("Init").call();
+            final String readmeInitialContent = String.format(
+                    "# Project %s \n\n Created at %s \n folder %s",
+                    (new File(absPath)).getName(), (new Date()).toString(), absPath
+            );
+            Files.write(
+                    Paths.get(absPath + File.separator + "README.md"),
+                    readmeInitialContent.getBytes(), StandardOpenOption.CREATE);
+            Files.write(
+                    Paths.get(absPath + File.separator + ".gitignore"),
+                    "target/\nbuild/\n".getBytes(),  StandardOpenOption.CREATE);
+        }
+    }
+
+
+    /**
+     * Get repository. TOTO Incorrect, because for settings. But ok for now.
      * todo
      * @return
      */
@@ -972,31 +996,7 @@ public class GitRepositoryService {
     }
 
 
-    /**
-     * Create new git repository.
-     *
-     * @param absPath path to repository.
-     */
-    public void createRepository(final String absPath) throws Exception {
-        String readmeInitialContent = "# " + (new File(absPath)).getName();
-        try (Git git = Git.init()
-                .setDirectory(new File(absPath))
-                .call()) {
 
-            git.commit().setMessage("Init").call();
-
-            Files.write(
-                    Paths.get(absPath + File.separator + "README.md"),
-                    readmeInitialContent.getBytes(),
-                    StandardOpenOption.CREATE);
-            Files.write(
-                    Paths.get(absPath + File.separator + ".gitignore"),
-                    "".getBytes(),
-                    StandardOpenOption.CREATE);
-
-        }
-
-    }
 
 
     /**

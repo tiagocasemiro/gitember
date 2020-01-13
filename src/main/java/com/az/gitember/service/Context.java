@@ -2,6 +2,7 @@ package com.az.gitember.service;
 
 
 import com.az.gitember.scm.impl.git.GitRepositoryService;
+import org.apache.commons.io.FileUtils;
 
 import java.io.IOException;
 
@@ -15,7 +16,8 @@ public class Context {
     //todo
     private static GitRepositoryService repositoryService = new GitRepositoryService();
     private static SettingsServiceImpl settingsService = new SettingsServiceImpl();
-    private static GitemberServiceImpl gitemberService;
+    // just for create or clone
+    private static GitemberServiceImpl gitemberService = new GitemberServiceImpl(new GitRepositoryService());
 
     /*
     MainViewController controller = fxmlLoader.getController();

@@ -65,7 +65,7 @@ public class JGitLsTree {
 
 
                     //LogCommand logs2 = git.log().all();
-                    //Repository repository = logs2.getRepository();
+                    //Repository repository = logs2.getRepoConfig();
                     //TreeWalk tw = new TreeWalk(repository);
                     TreeWalk tw = new TreeWalk(db);
                     tw.setRecursive(true);

@@ -19,6 +19,7 @@ import javafx.scene.control.*;
 import javafx.stage.DirectoryChooser;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.jgit.lib.Config;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revplot.PlotCommit;
@@ -57,6 +58,37 @@ public class GitemberServiceImpl {
     private Label operationName;
 
     private final GitRepositoryService gitRepositoryService;
+
+
+    /**
+     * Create new repository.
+     * @param onOk what to do in case if repo is created
+     */
+    public void createRepo(final Consumer<String> onOk) {
+
+        final DirectoryChooser directoryChooser = new DirectoryChooser();
+        directoryChooser.setInitialDirectory(FileUtils.getUserDirectory());
+        directoryChooser.setTitle("Select folder for new repository");
+
+        final File selectedDirectory =
+                directoryChooser.showDialog(GitemberApp.getMainStage());
+        if (selectedDirectory != null) {
+            final String absPath = selectedDirectory.getAbsolutePath();
+            try {
+                gitRepositoryService.createRepository(absPath);
+                String repoPath = absPath + File.separator + Const.GIT_FOLDER;
+                log.log(Level.INFO, "New repository was created - " + absPath);
+                onOk.accept(repoPath);
+            } catch (Exception e) {
+                log.log(Level.SEVERE, "Cannot create repository", e);
+                GitemberUITool.showException("Cannot create repository", e);
+            }
+
+        }
+    }
+
+
+
 
     public GitemberServiceImpl(GitRepositoryService gitRepositoryService) {
         this.gitRepositoryService = gitRepositoryService;
@@ -749,25 +781,7 @@ public class GitemberServiceImpl {
         }
     }
 
-    public void createRepo(final Consumer<String> onOk) {
-        final DirectoryChooser directoryChooser = new DirectoryChooser();
-        directoryChooser.setInitialDirectory(FileUtils.getUserDirectory());
-        final File selectedDirectory =
-                directoryChooser.showDialog(GitemberApp.getMainStage());
-        if (selectedDirectory != null) {
-            String absPath = selectedDirectory.getAbsolutePath();
-            try {
-                gitRepositoryService.createRepository(absPath);
-                String repoPath = absPath + File.separator + Const.GIT_FOLDER;
-                log.log(Level.INFO, "New repository was created - " + absPath);
-                onOk.accept(repoPath);
-            } catch (Exception e) {
-                log.log(Level.SEVERE, "Cannot create repository", e);
-                GitemberUITool.showException("Cannot create repository", e);
-            }
 
-        }
-    }
 
     public void makeBranchOperation(String title, String header, ThrowingConsumer<String> op) {
         final ArrayList<String> branches = new ArrayList<>();
@@ -955,7 +969,12 @@ public class GitemberServiceImpl {
         return gitRepositoryService.getCommitsByTree(treeName, all);
     }
 
-    public Repository getRepository() {
-        return gitRepositoryService.getRepository();
+
+    public Config getRepoConfig() {
+        return gitRepositoryService.getRepository().getConfig();
+    }
+
+    public String getRepoFolder() {
+        return gitRepositoryService.getRepository().getDirectory().getAbsolutePath();
     }
 }

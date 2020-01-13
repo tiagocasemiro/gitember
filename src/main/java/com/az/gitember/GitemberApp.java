@@ -67,7 +67,7 @@ public class GitemberApp extends Application {
             Parent root = fxmlLoader.load(is);
 
             GraphicsDevice gd = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
-            int minus = 1;
+            int minus = 100;
             int width = gd.getDisplayMode().getWidth() - minus;
             int height = gd.getDisplayMode().getHeight() - minus;
 

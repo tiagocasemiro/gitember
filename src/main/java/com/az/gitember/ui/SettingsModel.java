@@ -21,14 +21,6 @@ public class SettingsModel {
     private StringProperty projectKeyPath = new SimpleStringProperty();
     private StringProperty projectPwd = new SimpleStringProperty();
 
-
-    /////////////////// proxy
-    private BooleanProperty useProxy = new SimpleBooleanProperty();
-    private StringProperty proxyServer = new SimpleStringProperty();
-    private StringProperty proxyPort = new SimpleStringProperty();
-    private StringProperty proxyUserName = new SimpleStringProperty();
-    private StringProperty proxyPassword = new SimpleStringProperty();
-
     public boolean isRememberMe() {
         return rememberMe.get();
     }
@@ -125,69 +117,7 @@ public class SettingsModel {
         this.projectPwd.set(projectPwd);
     }
 
-    public boolean isUseProxy() {
-        return useProxy.get();
-    }
 
-    public boolean getUseProxy() {
-        return useProxy.get();
-    }
-
-    public BooleanProperty useProxyProperty() {
-        return useProxy;
-    }
-
-    public void setUseProxy(boolean useProxy) {
-        this.useProxy.set(useProxy);
-    }
-
-    public String getProxyServer() {
-        return proxyServer.get();
-    }
-
-    public StringProperty proxyServerProperty() {
-        return proxyServer;
-    }
-
-    public void setProxyServer(String proxyServer) {
-        this.proxyServer.set(proxyServer);
-    }
-
-    public String getProxyPort() {
-        return proxyPort.get();
-    }
-
-    public StringProperty proxyPortProperty() {
-        return proxyPort;
-    }
-
-    public void setProxyPort(String proxyPort) {
-        this.proxyPort.set(proxyPort);
-    }
-
-    public String getProxyUserName() {
-        return proxyUserName.get();
-    }
-
-    public StringProperty proxyUserNameProperty() {
-        return proxyUserName;
-    }
-
-    public void setProxyUserName(String proxyUserName) {
-        this.proxyUserName.set(proxyUserName);
-    }
-
-    public String getProxyPassword() {
-        return proxyPassword.get();
-    }
-
-    public StringProperty proxyPasswordProperty() {
-        return proxyPassword;
-    }
-
-    public void setProxyPassword(String proxyPassword) {
-        this.proxyPassword.set(proxyPassword);
-    }
     public SettingsModel() {
         super();
     }
@@ -205,13 +135,6 @@ public class SettingsModel {
         this.projectKeyPath.setValue(gitemberSettings.getProjectKeyPath());
         this.projectPwd.setValue(gitemberSettings.getProjectPwd());
 
-
-        /////////////////// proxy
-        this.useProxy.setValue(gitemberSettings.isUseProxy());
-        this.proxyServer.setValue(gitemberSettings.getProxyServer());
-        this.proxyPort.setValue(gitemberSettings.getProxyPort());
-        this.proxyUserName.setValue(gitemberSettings.getProxyUserName());
-        this.proxyPassword.setValue(gitemberSettings.getProxyPassword());
     }
 
     public GitemberProjectSettings toGitemberProjectSettings() {
@@ -225,14 +148,6 @@ public class SettingsModel {
         gitemberSettings.setProjectRemoteUrl(this.projectRemoteUrl.getValueSafe());
         gitemberSettings.setProjectKeyPath(this.projectKeyPath.getValueSafe());
         gitemberSettings.setProjectPwd(this.projectPwd.getValueSafe());
-
-        // proxy
-        gitemberSettings.setUseProxy(this.useProxy.getValue());
-        gitemberSettings.setProxyServer(this.proxyServer.getValueSafe());
-        gitemberSettings.setProxyPort(this.proxyPort.getValueSafe());
-        gitemberSettings.setProxyUserName(this.proxyUserName.getValueSafe());
-        gitemberSettings.setProxyPassword(this.proxyPassword.getValueSafe());
-
 
         return gitemberSettings;
     }

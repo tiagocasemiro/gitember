@@ -1,6 +1,7 @@
 package com.az.gitember.ui;
 
 import com.az.gitember.GitemberApp;
+import com.az.gitember.service.Context;
 import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -100,13 +101,13 @@ public class SettingsDialog extends Dialog<SettingsModel>  {
 
 
 
-        if (GitemberApp.getRepositoryService() != null && GitemberApp.getRepositoryService().getRepository() != null) {
+        /*if (GitemberApp.getRepositoryService() != null && GitemberApp.getRepositoryService().getRepository() != null) {
 
 
-        }
+        }*/
 
 
-        Repository repo = GitemberApp.getRepositoryService().getRepository();
+        Repository repo = Context.getGitemberService().getRepository();
         Config config = repo.getConfig();
 
         String projectHameFolder =  repo.getDirectory().getAbsolutePath();

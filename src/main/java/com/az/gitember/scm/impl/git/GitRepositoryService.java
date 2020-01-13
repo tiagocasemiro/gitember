@@ -1,6 +1,5 @@
 package com.az.gitember.scm.impl.git;
 
-import com.az.gitember.GitemberApp;
 import com.az.gitember.misc.*;
 import com.az.gitember.scm.exception.GECannotDeleteCurrentBranchException;
 import com.az.gitember.scm.exception.GECheckoutConflictException;
@@ -10,7 +9,6 @@ import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.UserInfo;
 import javafx.scene.control.Alert;
-import javafx.scene.control.Label;
 import org.eclipse.jgit.api.*;
 import org.eclipse.jgit.api.errors.*;
 import org.eclipse.jgit.blame.BlameResult;
@@ -49,14 +47,12 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.text.MessageFormat;
 import java.util.*;
-import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 /**
  * Created by Igor_Azarny on 03 - Dec - 2016
- * TODO extract interface
  */
 public class GitRepositoryService {
 
@@ -68,8 +64,6 @@ public class GitRepositoryService {
 
     private final StoredConfig config;
 
-    private final String gitFolder;
-
     /**
      * Construct service, which work with git. Each service designated to work with the new repo.
      * So we can have create project setting here form given folder
@@ -80,24 +74,16 @@ public class GitRepositoryService {
      */
     public GitRepositoryService(final String gitFolder) throws IOException {
         this.repository = GitUtil.openRepository(gitFolder);
-        this.config = repository.getConfig();
-        this.gitFolder = gitFolder;
+        this.config = repository.getConfig();/*
         String userName = config.getString(ConfigConstants.CONFIG_USER_SECTION, null, ConfigConstants.CONFIG_KEY_NAME);
         String userEMail = config.getString(ConfigConstants.CONFIG_USER_SECTION, null, ConfigConstants.CONFIG_KEY_EMAIL);
         String projectRemoteUrl =  config.getString(ConfigConstants.CONFIG_KEY_REMOTE, Constants.DEFAULT_REMOTE_NAME, ConfigConstants.CONFIG_KEY_URL);
-//todo not sure
-        GitemberApp.getSettingsService().createNewGitemberProjectSettings(
-                userName,
-                userEMail,
-                projectRemoteUrl,
-                gitFolder
-        );
+        */
     }
 
     public GitRepositoryService() {
         repository = null;
         config = null;
-        gitFolder = null;
     }
 
 
@@ -1586,17 +1572,11 @@ public class GitRepositoryService {
                 cmd.call();
             } catch (JGitInternalException | GitAPIException e) {
                 log.log(Level.WARNING, "Cannot checkout file " + fileName, e);
-                GitemberApp.showResult(e.getMessage(), Alert.AlertType.ERROR);
+                GitemberUITool.showResult(e.getMessage(), Alert.AlertType.ERROR);
             }
         }
 
 
-    }
-
-
-
-    public void checkoutFile(final String fileName) {
-        checkoutFile(fileName, null);
     }
 
     public RemoteOperationValue compressDatabase(ProgressMonitor defaultProgressMonitor) {

@@ -4,6 +4,7 @@ import com.az.gitember.misc.Const;
 import com.az.gitember.misc.GitemberUtil;
 import com.az.gitember.misc.ScmBranch;
 import com.az.gitember.misc.ScmItem;
+import com.az.gitember.service.Context;
 import com.az.gitember.ui.AutoCompleteTextField;
 import com.az.gitember.ui.PlotCommitRenderer;
 import com.sun.javafx.binding.StringConstant;
@@ -92,7 +93,7 @@ public class BranchViewController implements Initializable {
                                         final PlotCommit newValue) {
 
                         Parent commitView = CommitViewController.openCommitViewWindow(
-                                GitemberApp.getRepositoryService().adapt(newValue, null),
+                                Context.getGitemberService().adapt(newValue, null),
                                 -1, treeName, null, null, null);
                         hostCommitViewPanel.getChildren().removeAll(hostCommitViewPanel.getChildren());
                         hostCommitViewPanel.getChildren().add(commitView);
@@ -114,7 +115,7 @@ public class BranchViewController implements Initializable {
                                         || scmItem.getName().toLowerCase().contains(searchText)
                                         || prersonIndentContains(scmItem.getCommitterIdent(), searchText)
                                         || prersonIndentContains(scmItem.getAuthorIdent(), searchText)
-                                        || GitemberApp.getRepositoryService().getScmItems(scmItem, null)
+                                        || Context.getGitemberService().getScmItems(scmItem, null)
                                         .stream()
                                         .map(s -> s.getAttribute().getName())
                                         .collect(Collectors.joining(","))
@@ -219,7 +220,7 @@ public class BranchViewController implements Initializable {
 
 
     public void open(final boolean all) throws Exception {
-        this.plotCommits = GitemberApp.getRepositoryService().getCommitsByTree(this.treeName, all);
+        this.plotCommits = Context.getGitemberService().getCommitsByTree(this.treeName, all);
         commitsTableView.setItems(FXCollections.observableArrayList(plotCommits));
         plotWidth = calculateLineColumnWidth(plotCommits);
         laneTableColumn.setPrefWidth(plotWidth);

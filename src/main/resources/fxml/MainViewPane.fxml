@@ -26,7 +26,7 @@
 <?import javafx.scene.control.TreeView?>
 <?import javafx.scene.control.TreeItem?>
 <BorderPane minHeight="600" minWidth="800" prefHeight="720.0" prefWidth="1024.0" xmlns="http://javafx.com/javafx/null"
-            xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.az.gitember.FXMLController">
+            xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.az.gitember.MainViewController">
     <left >
         <TreeView minWidth="150" prefWidth="300" fx:id="repoTreeView" showRoot="false" disable="true">
             <TreeItem value="dummy">
@@ -188,7 +188,7 @@
                         </Menu>
                         <Menu mnemonicParsing="false" text="Help">
                             <items>
-                                <MenuItem text="Check for update" onAction="#chckeForUpdate"/>
+                                <MenuItem text="Check for update" onAction="#checkForUpdate"/>
                                 <MenuItem text="Create bug report" onAction="#createBugReportHandler"/>
                                 <SeparatorMenuItem mnemonicParsing="false"/>
                                 <MenuItem text="About" onAction="#aboutHandler"/>
@@ -248,6 +248,7 @@
     <center>
         <AnchorPane fx:id="hostPanel" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER"/>
     </center>
+
     <bottom>
         <ToolBar fx:id="progressBar" visible="false">
             <items>

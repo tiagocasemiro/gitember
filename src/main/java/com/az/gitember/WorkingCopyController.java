@@ -2,6 +2,7 @@ package com.az.gitember;
 
 import com.az.gitember.misc.*;
 import com.az.gitember.scm.exception.GEScmAPIException;
+import com.az.gitember.service.Context;
 import com.az.gitember.ui.AutoCompleteTextField;
 import com.az.gitember.ui.StatusCellValueFactory;
 import com.sun.javafx.binding.StringConstant;
@@ -44,7 +45,7 @@ import java.util.logging.Logger;
  */
 public class WorkingCopyController implements Initializable {
 
-    private final static Logger log = Logger.getLogger(FXMLController.class.getName());
+    private final static Logger log = Logger.getLogger(MainViewController.class.getName());
 
     public TableView workingCopyTableView;
     public TableColumn<ScmItem, FontIcon> statusTableColumn;
@@ -312,10 +313,10 @@ public class WorkingCopyController implements Initializable {
     }
 
     private void mergeBranch(ActionEvent actionEvent) {
-        GitemberApp.getGitemberService().makeBranchOperation(
+        Context.getGitemberService().makeBranchOperation(
                 "Merge",
                 "Please select branch to merge with current",
-                s -> GitemberApp.getGitemberService().mergeToHead(s));
+                s -> Context.getGitemberService().mergeToHead(s));
     }
 
     /**
@@ -325,10 +326,10 @@ public class WorkingCopyController implements Initializable {
      */
     @SuppressWarnings("unused")
     private void checkoutRevision(ActionEvent actionEvent) {
-        GitemberApp.getGitemberService().makeBranchOperation(
+        Context.getGitemberService().makeBranchOperation(
                 "Checkout",
                 "Please select branch to checkout",
-                s -> GitemberApp.getGitemberService().checkout(s, null));
+                s -> Context.getGitemberService().checkout(s, null));
     }
 
     /**
@@ -338,10 +339,10 @@ public class WorkingCopyController implements Initializable {
      */
     @SuppressWarnings("unused")
     private void rebaseIntoWorkingCopy(ActionEvent actionEvent) {
-        GitemberApp.getGitemberService().makeBranchOperation(
+        Context.getGitemberService().makeBranchOperation(
                 "Rebase",
                 "Please select branch to integrate into your working copy",
-                s -> GitemberApp.getGitemberService().rebase(s));
+                s -> Context.getGitemberService().rebase(s));
     }
 
 
@@ -351,7 +352,7 @@ public class WorkingCopyController implements Initializable {
         Task<List<ScmItem>> longTask = new Task<List<ScmItem>>() {
             @Override
             protected List<ScmItem> call() throws Exception {
-                return GitemberApp.getRepositoryService().getStatuses(path);
+                return Context.getGitemberService().getStatuses(path);
             }
         };
 
@@ -386,7 +387,7 @@ public class WorkingCopyController implements Initializable {
                     GitemberApp.getMainStage().getScene().setCursor(Cursor.DEFAULT);
                     Throwable e = z.getSource().getException();
                     log.log(Level.SEVERE, "Cannot load item statuses from repository", e);
-                    GitemberApp.showException("Cannot open working copy. ", e);
+                    GitemberUITool.showException("Cannot open working copy. ", e);
                 })
         );
 
@@ -442,7 +443,7 @@ public class WorkingCopyController implements Initializable {
      */
     @SuppressWarnings("unused")
     public void commitHandler(ActionEvent actionEvent) {
-        if (GitemberApp.getGitemberService().commit(branch)) {
+        if (Context.getGitemberService().commit(branch)) {
             open(branch, null);
         }
     }
@@ -468,11 +469,11 @@ public class WorkingCopyController implements Initializable {
     @SuppressWarnings("unused")
     public void stashBtnHandler(ActionEvent actionEvent) {
         try {
-            GitemberApp.getRepositoryService().stash();
+            Context.getGitemberService().stash();
             open(branch, null);
             onStashCreated.accept(null);
         } catch (GEScmAPIException e) {
-            GitemberApp.showResult("Changes not moved to stash, because: " + e.getMessage(), Alert.AlertType.ERROR);
+            GitemberUITool.showResult("Changes not moved to stash, because: " + e.getMessage(), Alert.AlertType.ERROR);
             log.log(Level.SEVERE, "Cannot move to stash", e);
         }
     }
@@ -525,11 +526,11 @@ public class WorkingCopyController implements Initializable {
             final FileViewController fileViewController = new FileViewController();
             try {
                 fileViewController.openFile(
-                        GitemberApp.getCurrentRepositoryPathWOGit() + File.separator + item.getShortName(),
+                        "Context.getCurrentRepositoryPathWOGit()" + File.separator + item.getShortName(),
                         item.getShortName());
             } catch (Exception e) {
                 String msg = String.format("Cannot open file %s", item.getShortName());
-                GitemberApp.showResult(msg, Alert.AlertType.WARNING);
+                GitemberUITool.showResult(msg, Alert.AlertType.WARNING);
                 log.log(Level.WARNING, msg, e);
             }
         }
@@ -544,11 +545,11 @@ public class WorkingCopyController implements Initializable {
     public void revertEventHandler(ActionEvent actionEvent) {
         final ScmItem item = (ScmItem) workingCopyTableView.getSelectionModel().getSelectedItem();
         if (item != null) {
-            Optional<ButtonType> result = GitemberApp.showResult(
+            Optional<ButtonType> result = GitemberUITool.showResult(
                     "Revert " + item.getShortName() + " changes ?",
                     Alert.AlertType.CONFIRMATION);
             if (result.isPresent() && result.get() == ButtonType.OK) {
-                GitemberApp.getRepositoryService().checkoutFile(item.getShortName());
+                Context.getGitemberService().checkoutFile(item.getShortName(), null);
                 open(branch, item.getShortName());
             }
         }
@@ -576,8 +577,8 @@ public class WorkingCopyController implements Initializable {
     private void resolveConflict(Stage stage) {
         final ScmItem item = (ScmItem) workingCopyTableView.getSelectionModel().getSelectedItem();
         if (item != null) {
-            GitemberApp.getRepositoryService().checkoutFile(item.getShortName(), stage);
-            GitemberApp.getRepositoryService().addFileToCommitStage(item.getShortName());
+            Context.getGitemberService().checkoutFile(item.getShortName(), stage);
+            Context.getGitemberService().addFileToCommitStage(item.getShortName());
             open(branch, item.getShortName());
         }
     }
@@ -595,11 +596,11 @@ public class WorkingCopyController implements Initializable {
 
             try {
                 final String fileName = item.getShortName();
-                final Pair<String, String> head = GitemberApp.getRepositoryService().getHead();
-                final String oldFile = GitemberApp.getRepositoryService().saveFile(
+                final Pair<String, String> head = Context.getGitemberService().getHead();
+                final String oldFile = Context.getGitemberService().saveFile(
                         head.getFirst(),
                         head.getSecond(), fileName);
-                final String newFile = GitemberApp.getCurrentRepositoryPathWOGit() + File.separator + fileName;
+                final String newFile = "GitemberApp.getCurrentRepositoryPathWOGit()" + File.separator + fileName;
 
                 List<String> newFileLines = Files.readAllLines(Paths.get(newFile));
                 List<String> oldFileLines = Files.readAllLines(Paths.get(oldFile));
@@ -671,23 +672,23 @@ public class WorkingCopyController implements Initializable {
             if (item != null) {
                 if (isUnstaged(item)) {
                     if (item.getAttribute().getStatus().contains(ScmItemStatus.MISSED)) {
-                        GitemberApp.getRepositoryService().removeMissedFile(item.getShortName());
+                        Context.getGitemberService().removeMissedFile(item.getShortName());
                         item.getAttribute().getStatus().remove(ScmItemStatus.MISSED);
                         item.getAttribute().getStatus().add(ScmItemStatus.REMOVED);
                     } else if (item.getAttribute().getStatus().contains(ScmItemStatus.UNTRACKED)) {
-                        GitemberApp.getRepositoryService().addFileToCommitStage(item.getShortName());
+                        Context.getGitemberService().addFileToCommitStage(item.getShortName());
                         item.getAttribute().getStatus().remove(ScmItemStatus.UNTRACKED);
                         item.getAttribute().getStatus().add(ScmItemStatus.ADDED);
                         item.getAttribute().getStatus().add(ScmItemStatus.CHANGED);
                         item.getAttribute().getStatus().add(ScmItemStatus.UNCOMMITED);
                     } else {
-                        GitemberApp.getRepositoryService().addFileToCommitStage(item.getShortName());
+                        Context.getGitemberService().addFileToCommitStage(item.getShortName());
                         item.getAttribute().getStatus().remove(ScmItemStatus.MODIFIED);
                     }
                 }
             }
         } catch (Exception e) {
-            GitemberApp.showException("Cannot add item " + item.getShortName() + " to stage", e);
+            GitemberUITool.showException("Cannot add item " + item.getShortName() + " to stage", e);
         }
     }
 
@@ -699,26 +700,26 @@ public class WorkingCopyController implements Initializable {
                     if (item.getAttribute().getStatus().contains(ScmItemStatus.REMOVED)
                             && item.getAttribute().getStatus().contains(ScmItemStatus.UNCOMMITED)
                             && item.getAttribute().getStatus().size() == 2) {
-                        GitemberApp.getRepositoryService().removeFileFromCommitStage(item.getShortName());
+                        Context.getGitemberService().removeFileFromCommitStage(item.getShortName());
                         item.getAttribute().getStatus().remove(ScmItemStatus.REMOVED);
                         item.getAttribute().getStatus().add(ScmItemStatus.MISSED);
                     } else if (item.getAttribute().getStatus().contains(ScmItemStatus.ADDED)
                             && item.getAttribute().getStatus().contains(ScmItemStatus.CHANGED)
                             && item.getAttribute().getStatus().contains(ScmItemStatus.UNCOMMITED)
                             && item.getAttribute().getStatus().size() == 3) {
-                        GitemberApp.getRepositoryService().removeFileFromCommitStage(item.getShortName());
+                        Context.getGitemberService().removeFileFromCommitStage(item.getShortName());
                         item.getAttribute().getStatus().clear();
                         item.getAttribute().getStatus().add(ScmItemStatus.UNTRACKED);
 
                     } else if (item.getAttribute().getStatus().contains(ScmItemStatus.UNCOMMITED)
                             && item.getAttribute().getStatus().size() == 1) {
-                        GitemberApp.getRepositoryService().removeFileFromCommitStage(item.getShortName());
+                        Context.getGitemberService().removeFileFromCommitStage(item.getShortName());
                         item.getAttribute().getStatus().add(ScmItemStatus.MODIFIED);
                     }
                 }
             }
         } catch (Exception e) {
-            GitemberApp.showException("Cannot unstage item " + item.getShortName(), e);
+            GitemberUITool.showException("Cannot unstage item " + item.getShortName(), e);
         }
     }
 
@@ -737,12 +738,12 @@ public class WorkingCopyController implements Initializable {
                             || ScmItemStatus.CONFLICT_BOTH_DELETED.equals(item.getAttribute().getSubstatus())
                     ) {
                         if (Files.exists(Paths.get(item.getShortName()))) {
-                            GitemberApp.getRepositoryService().addFileToCommitStage(item.getShortName());
+                            Context.getGitemberService().addFileToCommitStage(item.getShortName());
                             item.getAttribute().getStatus().remove(ScmItemStatus.CONFLICT);
                             item.getAttribute().getStatus().add(ScmItemStatus.CHANGED);
                             item.getAttribute().getStatus().add(ScmItemStatus.UNCOMMITED);
                         } else {
-                            GitemberApp.getRepositoryService().removeMissedFile(item.getShortName());
+                            Context.getGitemberService().removeMissedFile(item.getShortName());
                             item.getAttribute().getStatus().remove(ScmItemStatus.MISSED);
                             item.getAttribute().getStatus().add(ScmItemStatus.REMOVED);
                         }
@@ -750,7 +751,7 @@ public class WorkingCopyController implements Initializable {
                             || ScmItemStatus.CONFLICT_ADDED_BY_THEM.equals(item.getAttribute().getSubstatus())
                             || ScmItemStatus.CONFLICT_BOTH_ADDED.equals(item.getAttribute().getSubstatus())
                             || ScmItemStatus.CONFLICT_BOTH_MODIFIED.equals(item.getAttribute().getSubstatus())) {
-                        GitemberApp.getRepositoryService().addFileToCommitStage(item.getShortName());
+                        Context.getGitemberService().addFileToCommitStage(item.getShortName());
                         item.getAttribute().getStatus().remove(ScmItemStatus.CONFLICT);
                         item.getAttribute().getStatus().add(ScmItemStatus.CHANGED);
                         item.getAttribute().getStatus().add(ScmItemStatus.UNCOMMITED);
@@ -759,7 +760,7 @@ public class WorkingCopyController implements Initializable {
                 }
             }
         } catch (Exception e) {
-            GitemberApp.showException("Cannot add item " + item.getShortName() + " to stage", e);
+            GitemberUITool.showException("Cannot add item " + item.getShortName() + " to stage", e);
         }
     }
 
@@ -788,13 +789,14 @@ public class WorkingCopyController implements Initializable {
             toolBar.getItems().add(workingCopyController.searchLabel);
             toolBar.getItems().add(workingCopyController.searchText);
             // toolBar.getItems().add(workingCopyController.searchButton);
+
             GitemberApp.setWorkingCopyController(workingCopyController);
 
 
             return workCopyView;
         } catch (IOException ioe) {
             log.log(Level.SEVERE, "Cannot open working copy view", ioe.getMessage());
-            GitemberApp.showException("Cannot open working copy view", ioe);
+            GitemberUITool.showException("Cannot open working copy view", ioe);
         }
 
         return null;

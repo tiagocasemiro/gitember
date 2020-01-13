@@ -1,13 +1,13 @@
 package com.az.gitember;
 
 import com.az.gitember.misc.*;
+import com.az.gitember.service.Context;
 import com.az.gitember.ui.ActionCellValueFactory;
 import com.az.gitember.ui.AutoCompleteTextField;
 import com.az.gitember.ui.ShaTextField;
 import com.sun.javafx.binding.StringConstant;
 import difflib.DiffUtils;
 import difflib.Patch;
-import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
  */
 public class CommitViewController implements Initializable {
 
-    private final static Logger log = Logger.getLogger(FXMLController.class.getName());
+    private final static Logger log = Logger.getLogger(MainViewController.class.getName());
 
     @FXML
     public Menu stashMenu;
@@ -168,10 +168,10 @@ public class CommitViewController implements Initializable {
         try {
             final FileViewController fileViewController = new FileViewController();
             fileViewController.openFile(
-                    GitemberApp.getRepositoryService().saveFile(treeName, revisionFullName, fileName),
+                    Context.getGitemberService().saveFile(treeName, revisionFullName, fileName),
                     fileName);
         } catch (Exception e) {
-            GitemberApp.showResult("Could not open file: " + e.getMessage(), Alert.AlertType.ERROR);
+            GitemberUITool.showResult("Could not open file: " + e.getMessage(), Alert.AlertType.ERROR);
         }
     }
 
@@ -180,7 +180,7 @@ public class CommitViewController implements Initializable {
         final ScmItem scmItem = (ScmItem) changedFilesListView.getSelectionModel().getSelectedItem();
         final String fileName = scmItem.getAttribute().getName();
         final String revisionName = scmRevisionInformation.getRevisionFullName();
-        final String path = GitemberApp.getRepositoryService().saveDiff(treeName, revisionName, fileName);
+        final String path = Context.getGitemberService().saveDiff(treeName, revisionName, fileName);
         final FileViewController fileViewController = new FileViewController();
         fileViewController.openFile(path, fileName);
     }
@@ -190,9 +190,9 @@ public class CommitViewController implements Initializable {
         final ScmItem scmItem = (ScmItem) changedFilesListView.getSelectionModel().getSelectedItem();
         final String fileName = scmItem.getAttribute().getName();
         final String parentREvision = scmRevisionInformation.getParents().get(0); //todo determinate parent right
-        final String oldFile = GitemberApp.getRepositoryService().saveFile(treeName, parentREvision, fileName);
-        final String newFile = GitemberApp.getRepositoryService().saveFile(treeName, scmRevisionInformation.getRevisionFullName(), fileName);
-        final String diffFile = GitemberApp.getRepositoryService().saveDiff(treeName, scmRevisionInformation.getRevisionFullName(), fileName);
+        final String oldFile = Context.getGitemberService().saveFile(treeName, parentREvision, fileName);
+        final String newFile = Context.getGitemberService().saveFile(treeName, scmRevisionInformation.getRevisionFullName(), fileName);
+        final String diffFile = Context.getGitemberService().saveDiff(treeName, scmRevisionInformation.getRevisionFullName(), fileName);
         final DiffViewController fileViewController = new DiffViewController();
         fileViewController.openFile(
                 new File(fileName).getName(),
@@ -210,9 +210,9 @@ public class CommitViewController implements Initializable {
         final ScmItem scmItem = (ScmItem) changedFilesListView.getSelectionModel().getSelectedItem();
         final String fileName = scmItem.getAttribute().getName();
         final String oldRevisionName = scmRevisionInformation.getRevisionFullName();
-        final String oldFile = GitemberApp.getRepositoryService().saveFile(treeName, oldRevisionName, fileName);
+        final String oldFile = Context.getGitemberService().saveFile(treeName, oldRevisionName, fileName);
 
-        final String newFile = GitemberApp.getCurrentRepositoryPathWOGit() + File.separator + fileName;
+        final String newFile = "GitemberApp.getCurrentRepositoryPathWOGit()" + File.separator + fileName;
 
         List<String> newFileLines = Files.readAllLines(Paths.get(newFile));
         List<String> oldFileLines = Files.readAllLines(Paths.get(oldFile));
@@ -239,14 +239,14 @@ public class CommitViewController implements Initializable {
         final ScmItem scmItem = (ScmItem) changedFilesListView.getSelectionModel().getSelectedItem();
         final String fileName = scmItem.getAttribute().getName();
         final String oldRevisionName = scmRevisionInformation.getRevisionFullName();
-        final String oldFile = GitemberApp.getRepositoryService().saveFile(treeName, oldRevisionName, fileName);
+        final String oldFile = Context.getGitemberService().saveFile(treeName, oldRevisionName, fileName);
 
-        final ScmRevisionInformation lastCommit = GitemberApp.getRepositoryService().getFileHistory(treeName, fileName, 1).get(0);
+        final ScmRevisionInformation lastCommit = Context.getGitemberService().getFileHistory(treeName, fileName, 1).get(0);
 
         final String newRevisionName = lastCommit.getRevisionFullName();
 
-        final String newFile = GitemberApp.getRepositoryService().saveFile(treeName, newRevisionName, fileName);
-        final String diffFile = GitemberApp.getRepositoryService().saveDiff(treeName, oldRevisionName, newRevisionName, fileName);
+        final String newFile = Context.getGitemberService().saveFile(treeName, newRevisionName, fileName);
+        final String diffFile = Context.getGitemberService().saveDiff(treeName, oldRevisionName, newRevisionName, fileName);
         final DiffViewController fileViewController = new DiffViewController();
         fileViewController.openFile(
                 new File(fileName).getName(),
@@ -275,7 +275,7 @@ public class CommitViewController implements Initializable {
      */
     @SuppressWarnings("unused")
     public void applyStashHandler(ActionEvent actionEvent) {
-        GitemberApp.getGitemberService().applyStash(scmRevisionInformation);
+        Context.getGitemberService().applyStash(scmRevisionInformation);
     }
 
     /**
@@ -284,14 +284,14 @@ public class CommitViewController implements Initializable {
      */
     @SuppressWarnings("unused")
     public void deleteStashHandler(ActionEvent actionEvent) {
-        if (GitemberApp.getGitemberService().deleteStash(
+        if (Context.getGitemberService().deleteStash(
                 scmRevisionInformation,
                 stashIndex
         )) {
             if (onStashDelete != null) {
                 onStashDelete.accept(scmRevisionInformation);
             }
-            GitemberApp.showResult("Deleted stash", Alert.AlertType.INFORMATION);
+            GitemberUITool.showResult("Deleted stash", Alert.AlertType.INFORMATION);
         }
 
     }

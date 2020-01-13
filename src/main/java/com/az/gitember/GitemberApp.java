@@ -47,72 +47,27 @@ public class GitemberApp extends Application {
     public static StringProperty remoteUrl = new SimpleStringProperty();
     public static ObjectProperty<ScmBranch> workingBranch = new SimpleObjectProperty<ScmBranch>();
 
-    //todo
-    public static GitRepositoryService repositoryService = new GitRepositoryService();
-    private static SettingsServiceImpl settingsService = new SettingsServiceImpl();
-    private static GitemberServiceImpl gitemberService = new GitemberServiceImpl();
+
     private static  WorkingCopyController workingCopyController = null;
 
     public final static SortedSet<String> entries = new TreeSet<>();
 
 
-    public static void setWorkingBranch(ScmBranch workingBranch) throws Exception {
-        GitemberApp.workingBranch.setValue(workingBranch);
-        String head = getRepositoryService().getHead().getFirst();
-        GitemberApp.setTitle(Const.TITLE + getCurrentRepositoryPathWOGit() + " " + head);
-
-    }
-
     public static Stage getMainStage() {
         return mainStage;
     }
 
-    public static String getCurrentRepositoryPathWOGit() {
-        if (currentRepositoryPath != null) {
-            return FilenameUtils.getFullPathNoEndSeparator(currentRepositoryPath.getValue());
-        }
-        return null;
-    }
-
-    public static GitRepositoryService getRepositoryService() {
-        return repositoryService;
-    }
-
-
-
-    public static GitemberServiceImpl getGitemberService() {
-        return gitemberService;
-    }
-
-    public static void setTitle(String title) {
-        mainStage.setTitle(title);
-    }
-
-    public static SettingsServiceImpl getSettingsService() {
-        return settingsService;
-    }
-
-
-    public static void applySettings(GitemberSettings newGitemberSettings) {
-
-    }
 
 
     @Override
     public void start(Stage stage) throws Exception {
         final FXMLLoader fxmlLoader = new FXMLLoader();
 
-        try (InputStream is = WorkingCopyController.class.getResource("/fxml/Scene.fxml").openStream()) {
+        try (InputStream is = WorkingCopyController.class.getResource("/fxml/MainViewPane.fxml").openStream()) {
             Parent root = fxmlLoader.load(is);
-            FXMLController controller = fxmlLoader.getController();
-            gitemberService.setProgressBar(controller.progressBar);
-            gitemberService.setOperationProgressBar(controller.operationProgressBar);
-            gitemberService.setOperationName(controller.operationName);
-            applySettings(getSettingsService().getGitemberSettings());
-
 
             GraphicsDevice gd = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
-            int minus = 100;
+            int minus = 1;
             int width = gd.getDisplayMode().getWidth() - minus;
             int height = gd.getDisplayMode().getHeight() - minus;
 
@@ -122,22 +77,18 @@ public class GitemberApp extends Application {
 
 
             mainStage = stage;
-            setTitle(Const.TITLE);
+            mainStage.setTitle(Const.TITLE);
             stage.setScene(scene);
             stage.getIcons().add(new Image(GitemberApp.class.getResourceAsStream(Const.ICON)));
             stage.show();
 
-            stage.setOnCloseRequest(
-                    e -> GitRepositoryService.cleanUpTempFiles()
-            );
+
 
             stage.focusedProperty().addListener(new ChangeListener<Boolean>()  {
                 @Override
                 public void changed(ObservableValue<? extends Boolean> ov, Boolean onHidden, Boolean onShown)       {
 
-                    if(onShown  && (workingCopyController instanceof  WorkingCopyController) ) {
-                        ((WorkingCopyController) workingCopyController).refreshBtnHandler(null);
-                    }
+                    System.out.println("Got focus");
 
                 }
             });
@@ -146,67 +97,6 @@ public class GitemberApp extends Application {
 
     }
 
-    public static Optional<ButtonType> showResult(String text, Alert.AlertType alertTypet) {
-        GridPane gridPane = null;
-        if (StringUtils.isNotBlank(text)) {
-            TextArea textArea = new TextArea(text);
-            textArea.setEditable(false);
-            textArea.setWrapText(true);
-            gridPane = new GridPane();
-            gridPane.setMaxWidth(Double.MAX_VALUE);
-            gridPane.add(textArea, 0, 0);
-            GridPane.setHgrow(textArea, Priority.ALWAYS);
-            GridPane.setFillWidth(textArea, true);
-
-        }
-
-        Alert alert = new Alert(alertTypet);
-        alert.setWidth(600);
-        alert.setTitle("Result");
-        //alert.setContentText(text);
-        if (StringUtils.isNotBlank(text)) {
-            alert.getDialogPane().setContent(gridPane);
-        }
-
-        return alert.showAndWait();
-    }
-
-    public static void showException(String text, Throwable ex) {
-
-        Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setWidth(600);
-        alert.setTitle("Result");
-        alert.setContentText(text);
-
-        StringWriter sw = new StringWriter();
-        PrintWriter pw = new PrintWriter(sw);
-        String exceptionText = sw.toString();
-
-        Label label = new Label("The exception stacktrace was:");
-
-        TextArea textArea = new TextArea(exceptionText);
-        textArea.setEditable(false);
-        textArea.setWrapText(true);
-
-        textArea.setMaxWidth(Double.MAX_VALUE);
-        textArea.setMaxHeight(Double.MAX_VALUE);
-        GridPane.setVgrow(textArea, Priority.ALWAYS);
-        GridPane.setHgrow(textArea, Priority.ALWAYS);
-
-        GridPane expContent = new GridPane();
-        expContent.setMaxWidth(Double.MAX_VALUE);
-        expContent.add(label, 0, 0);
-        expContent.add(textArea, 0, 1);
-
-        // Set expandable Exception into the dialog pane.
-        alert.getDialogPane().setExpandableContent(expContent);
-        alert.showAndWait();
-
-    }
-
-    public static void setWorkingCopyController(WorkingCopyController workingCopyController) {
-        GitemberApp.workingCopyController = workingCopyController;
-    }
 
     /**
      * The main() method is ignored in correctly deployed JavaFX application.
@@ -220,13 +110,16 @@ public class GitemberApp extends Application {
 
         try {
             LogManager.getLogManager().readConfiguration(GitemberApp.class.getResourceAsStream("/log.properties"));
-            WindowCacheConfig c = new WindowCacheConfig();
-            c.install();
+            (new WindowCacheConfig()).install();
         } catch (IOException e) {
             e.printStackTrace();
-
         }
         launch(args);
+    }
+
+
+    public static void setWorkingCopyController(WorkingCopyController workingCopyController) {
+        GitemberApp.workingCopyController = workingCopyController;
     }
 
 }

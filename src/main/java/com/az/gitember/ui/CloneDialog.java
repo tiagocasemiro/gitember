@@ -3,6 +3,7 @@ package com.az.gitember.ui;
 import com.az.gitember.GitemberApp;
 import com.az.gitember.misc.GitemberProjectSettings;
 import com.az.gitember.misc.Pair;
+import com.az.gitember.service.Context;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleStringProperty;
@@ -197,7 +198,7 @@ public class CloneDialog extends Dialog<GitemberProjectSettings> {
         selectFolder.setOnAction(
                 event -> {
                     final DirectoryChooser directoryChooser = new DirectoryChooser();
-                    directoryChooser.setInitialDirectory(new File(GitemberApp.getSettingsService().getUserHomeFolder()));
+                    directoryChooser.setInitialDirectory(new File(Context.getSettingsService().getUserHomeFolder()));
                     final File selectedDirectory =
                             directoryChooser.showDialog(GitemberApp.getMainStage());
                     if (selectedDirectory != null) {
@@ -209,7 +210,7 @@ public class CloneDialog extends Dialog<GitemberProjectSettings> {
         selectPathToKeyBtn.setOnAction(
                 event -> {
                     final FileChooser fileChooser = new FileChooser();
-                    fileChooser.setInitialDirectory(new File(GitemberApp.getSettingsService().getUserHomeFolder()));
+                    fileChooser.setInitialDirectory(new File(Context.getSettingsService().getUserHomeFolder()));
                     final File selectedFile =
                             fileChooser.showOpenDialog(GitemberApp.getMainStage());
                     if (selectedFile != null) {

@@ -3,6 +3,7 @@ package com.az.gitember;
 import com.az.gitember.misc.Const;
 import com.az.gitember.misc.GitemberUtil;
 import com.az.gitember.misc.ScmRevisionInformation;
+import com.az.gitember.service.Context;
 import com.az.gitember.ui.ActionCellValueFactory;
 import com.sun.javafx.binding.StringConstant;
 import javafx.collections.FXCollections;
@@ -104,7 +105,7 @@ public class HistoryViewController implements Initializable {
     public void openHistory() throws Exception {
         historyTableView.setItems(
                 FXCollections.observableArrayList(
-                        GitemberApp.getRepositoryService().getFileHistory(treeName, fileName)
+                        Context.getGitemberService().getFileHistory(treeName, fileName)
                 )
         );
     }
@@ -129,9 +130,9 @@ public class HistoryViewController implements Initializable {
             final String newRevisionName = newRevision.getRevisionFullName();
 
             //todo copy past from commit controller # openDiffWithLatestVersionMenuItemClickHandler
-            final String oldFile = GitemberApp.getRepositoryService().saveFile(treeName, oldRevisionName, fileName);
-            final String newFile = GitemberApp.getRepositoryService().saveFile(treeName, newRevisionName, fileName);
-            final String diffFile = GitemberApp.getRepositoryService().saveDiff(treeName,oldRevisionName , newRevisionName, fileName);
+            final String oldFile = Context.getGitemberService().saveFile(treeName, oldRevisionName, fileName);
+            final String newFile = Context.getGitemberService().saveFile(treeName, newRevisionName, fileName);
+            final String diffFile = Context.getGitemberService().saveDiff(treeName,oldRevisionName , newRevisionName, fileName);
             final DiffViewController fileViewController = new DiffViewController();
             fileViewController.openFile(
                     new File(fileName).getName(),
@@ -149,7 +150,7 @@ public class HistoryViewController implements Initializable {
         try {
             final FileViewController fileViewController = new FileViewController();
             fileViewController.openFile(
-                    GitemberApp.getRepositoryService().saveFile(treeName, revisionFullName, fileName),
+                    Context.getGitemberService().saveFile(treeName, revisionFullName, fileName),
                     fileName);
         } catch (Exception e) {       //todo error dialog
             e.printStackTrace();

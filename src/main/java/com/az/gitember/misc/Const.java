@@ -36,4 +36,9 @@ public interface Const {
 
     String REMOTE_PREFIX = Constants.R_REMOTES  + Constants.DEFAULT_REMOTE_NAME +  '/';
 
+    int ALERT_WIDTH = 600;
+
+
+
+
 }

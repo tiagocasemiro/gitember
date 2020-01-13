@@ -33,8 +33,6 @@ public class SettingsServiceImpl {
     private final static String SYSTEM_PROP_USER_HOME = "user.home";
     private final static String SYSTEM_PROP_OS_NAME = "os.name";
 
-    private final int COMMIT_HISTORY_LIMIT = 50;
-
     private final static String OS = System.getProperty(SYSTEM_PROP_OS_NAME).toLowerCase();
 
     private GitemberSettings gitemberSettings;
@@ -50,9 +48,6 @@ public class SettingsServiceImpl {
         return System.getProperty(SYSTEM_PROP_USER_HOME);
     }
 
-    public static boolean isWindows() {
-        return (OS.contains("win"));
-    }
 
     /**
      * Get absolute path path to property file with settings.
@@ -155,14 +150,14 @@ public class SettingsServiceImpl {
     }
 
 
-    public void createNewGitemberProjectSettings(
+    /*public void createNewGitemberProjectSettings(
             String userName,
             String userEMail,
             String projectRemoteUrl,
             String gitFolder
     ) {
 
-        SettingsServiceImpl settingsSrv = GitemberApp.getSettingsService();
+        SettingsServiceImpl settingsSrv = Context.getSettingsService();
 
         GitemberProjectSettings ps = new GitemberProjectSettings();
         ps.setProjectName(gitFolder);
@@ -180,18 +175,18 @@ public class SettingsServiceImpl {
             ps.updateForLogon(optRI.get());
         }
 
-        GitemberSettings gitemberSettings = GitemberApp.getSettingsService().getGitemberSettings();
+        GitemberSettings gitemberSettings = Context.getSettingsService().getGitemberSettings();
         gitemberSettings.addGitemberProjectSettings(ps);
         gitemberSettings.setLastGitFolder(gitFolder);
 
         settingsSrv.save();
         GitemberApp.getGitemberService().setNewRepoInfo(ps);
-    }
+    }*/
 
 
     //todo rename 4 f un
 
-    public String getUserNameFromStoredRepoConfig() {
+    /*public String getUserNameFromStoredRepoConfig() {
         return gitemberSettings.getLastProjectSettings().getUserName();
     }
 
@@ -201,7 +196,7 @@ public class SettingsServiceImpl {
 
     public String getRemoteUrlFromStoredRepoConfig() {
         return gitemberSettings.getLastProjectSettings().getProjectRemoteUrl();
-    }
+    }*/
 
     public GitemberSettings getGitemberSettings() {
         return gitemberSettings;

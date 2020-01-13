@@ -1,6 +1,13 @@
 package com.az.gitember.misc;
 
 import com.sun.istack.internal.NotNull;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextArea;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Priority;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.*;
 import java.lang.reflect.Field;
@@ -8,6 +15,7 @@ import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Optional;
 
 /**
  * Created by Igor_Azarny on 03 - Dec - 2016.
@@ -40,21 +48,22 @@ public class GitemberUtil {
     public static String getExtension(String fileName) {
         char ch;
         int len;
-        if(fileName==null ||
-                (len = fileName.length())==0 ||
-                (ch = fileName.charAt(len-1))=='/' || ch=='\\' || //in the case of a directory
-                ch=='.' ) //in the case of . or ..
+        if (fileName == null ||
+                (len = fileName.length()) == 0 ||
+                (ch = fileName.charAt(len - 1)) == '/' || ch == '\\' || //in the case of a directory
+                ch == '.') //in the case of . or ..
             return "";
         int dotInd = fileName.lastIndexOf('.'),
                 sepInd = Math.max(fileName.lastIndexOf(File.separatorChar), fileName.lastIndexOf('\\'));
-        if( dotInd<=sepInd )
+        if (dotInd <= sepInd)
             return "";
         else
-            return fileName.substring(dotInd+1).toLowerCase();
+            return fileName.substring(dotInd + 1).toLowerCase();
     }
 
     /**
      * Create deep copy of object.
+     *
      * @param orig original
      * @return deep copy
      */
@@ -73,18 +82,13 @@ public class GitemberUtil {
             ObjectInputStream in = new ObjectInputStream(
                     new ByteArrayInputStream(bos.toByteArray()));
             obj = in.readObject();
-        }
-        catch(IOException e) {
+        } catch (IOException e) {
             e.printStackTrace();
-        }
-        catch(ClassNotFoundException cnfe) {
+        } catch (ClassNotFoundException cnfe) {
             cnfe.printStackTrace();
         }
         return obj;
     }
-
-
-
 
 
 }

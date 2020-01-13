@@ -7,6 +7,7 @@ import com.az.gitember.scm.exception.GECannotDeleteCurrentBranchException;
 import com.az.gitember.scm.exception.GECheckoutConflictException;
 import com.az.gitember.scm.exception.GEScmAPIException;
 import com.az.gitember.scm.impl.git.DefaultProgressMonitor;
+import com.az.gitember.scm.impl.git.GitRepositoryService;
 import com.az.gitember.ui.CloneDialog;
 import com.az.gitember.ui.CommitDialog;
 import com.az.gitember.ui.LoginDialog;
@@ -16,16 +17,19 @@ import javafx.concurrent.Task;
 import javafx.scene.Cursor;
 import javafx.scene.control.*;
 import javafx.stage.DirectoryChooser;
-import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jgit.lib.Constants;
+import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.revplot.PlotCommit;
+import org.eclipse.jgit.revplot.PlotCommitList;
+import org.eclipse.jgit.revplot.PlotLane;
 import org.eclipse.jgit.transport.RefSpec;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -37,6 +41,8 @@ import java.util.stream.Collectors;
 
 
 /**
+ * Wrap over real repository service. Act between UI and repo.
+ * Potentially Git may be substituted with other repo service.
  * Created by Igor_Azarny on 26 -Dec -2016.
  */
 public class GitemberServiceImpl {
@@ -50,6 +56,11 @@ public class GitemberServiceImpl {
     private ProgressBar operationProgressBar;
     private Label operationName;
 
+    private final GitRepositoryService gitRepositoryService;
+
+    public GitemberServiceImpl(GitRepositoryService gitRepositoryService) {
+        this.gitRepositoryService = gitRepositoryService;
+    }
 
     public void setProgressBar(ToolBar progressBar) {
         this.progressBar = progressBar;
@@ -63,6 +74,29 @@ public class GitemberServiceImpl {
         this.operationName = operationName;
     }
 
+    public List<ScmBranch> getLocalBranches() {
+        return gitRepositoryService.getLocalBranches();
+    }
+
+    public List<ScmBranch> getTags() {
+        return gitRepositoryService.getTags();
+    }
+
+    public List<ScmBranch> getRemoteBranches() {
+        return gitRepositoryService.getRemoteBranches();
+    }
+
+    public List<ScmRevisionInformation> getStashList() {
+        return gitRepositoryService.getStashList();
+    }
+
+    public void deleteLocalBranch(final String name) throws GECannotDeleteCurrentBranchException, GEScmAPIException {
+        gitRepositoryService.deleteLocalBranch(name);
+    }
+
+    public void checkoutFile(final String fileName, Stage stage) {
+        gitRepositoryService.checkoutFile(fileName, stage);
+    }
     /**
      * Merge given branch to head.
      *
@@ -78,17 +112,17 @@ public class GitemberServiceImpl {
         Optional<String> dialogResult = dialog.showAndWait();
         if (dialogResult.isPresent()) {
             try {
-                GitemberApp.getRepositoryService().mergeLocalBranch(
+                gitRepositoryService.mergeLocalBranch(
                         branchName,
                         dialogResult.get());
-                GitemberApp.showResult("Merge result", Alert.AlertType.INFORMATION);
+                GitemberUITool.showResult("Merge result", Alert.AlertType.INFORMATION);
                 return true;
             } catch (Exception e) {
                 String msg = String.format("Cannot merge local branch %s to %s",
                         branchName,
                         GitemberApp.workingBranch.get().getShortName());
                 log.log(Level.SEVERE, msg, e);
-                GitemberApp.showException(msg, e);
+                GitemberUITool.showException(msg, e);
             }
         }
         return false;
@@ -107,7 +141,7 @@ public class GitemberServiceImpl {
         Task<Void> longTask = new Task<Void>() {
             @Override
             protected Void call() throws Exception {
-                GitemberApp.getRepositoryService().checkoutLocalBranch(fullName, newLocalName);
+                gitRepositoryService.checkoutLocalBranch(fullName, newLocalName);
                 return null;
             }
         };
@@ -117,10 +151,10 @@ public class GitemberServiceImpl {
                         () -> {
                             GitemberApp.getMainStage().getScene().setCursor(Cursor.DEFAULT);
                             try {
-                                GitemberApp.setWorkingBranch(
-                                        GitemberApp.getRepositoryService().getScmBranchByName(fullName)
-                                );
-                                GitemberApp.showResult("Branch " + fullName
+                                /*todo GitemberApp.setWorkingBranch(
+                                        gitRepositoryService.getScmBranchByName(fullName)
+                                );*/
+                                GitemberUITool.showResult("todo Branch " + fullName
                                         + " checked out", Alert.AlertType.INFORMATION);
                             } catch (Exception e) {
                                 log.log(Level.WARNING, "Checkout failed" + fullName, e);
@@ -141,11 +175,11 @@ public class GitemberServiceImpl {
                                         String.join("\n", e.getConflicting())
                                 );
                                 log.log(Level.WARNING, msg, e);
-                                GitemberApp.showResult(msg, Alert.AlertType.ERROR);
+                                GitemberUITool.showResult(msg, Alert.AlertType.ERROR);
                             } else if (ex instanceof Exception) {
                                 final String msg = "Cannot checkout branch " + fullName;
                                 log.log(Level.SEVERE, msg, ex);
-                                GitemberApp.showException(msg, ex);
+                                GitemberUITool.showException(msg, ex);
                             }
                         }
                 )
@@ -166,7 +200,7 @@ public class GitemberServiceImpl {
             @Override
             protected RemoteOperationValue call()  {
                 return remoteRepositoryOperation(
-                        () -> GitemberApp.getRepositoryService().rebase(
+                        () -> gitRepositoryService.rebase(
                                 fullName,
                                 new DefaultProgressMonitor((t, d) -> {
                                     updateTitle(t);
@@ -187,10 +221,10 @@ public class GitemberServiceImpl {
     public boolean commit(final ScmBranch brnch) {
         CommitDialog dialog = new CommitDialog(
                 "",
-                GitemberApp.getSettingsService().getUserNameFromStoredRepoConfig(),
-                GitemberApp.getSettingsService().getUserEmailFromStoredRepoConfig(),
+                "Context.getSettingsService().getUserNameFromStoredRepoConfig()",
+                "TODO Context.getSettingsService().getUserEmailFromStoredRepoConfig()",
                 false,
-                GitemberApp.getSettingsService().getGitemberSettings().getCommitMessages()
+                Context.getSettingsService().getGitemberSettings().getCommitMessages()
 
         );
         dialog.setTitle("Commit message");
@@ -198,14 +232,14 @@ public class GitemberServiceImpl {
         dialog.setContentText("Message:");
         Optional<String> result = dialog.showAndWait();
         if (result.isPresent()) {
-            GitemberSettings gitemberSettings = GitemberApp.getSettingsService().getGitemberSettings();
+            GitemberSettings gitemberSettings = Context.getSettingsService().getGitemberSettings();
             String msg = result.get();
             gitemberSettings.getCommitMessages().add(msg);
-            GitemberApp.getSettingsService().save();
+            Context.getSettingsService().save();
             try {
-                GitemberApp.getRepositoryService().commit(result.get());
+                gitRepositoryService.commit(result.get());
             } catch (GEScmAPIException e) {
-                GitemberApp.showException("Cannot commit", e);
+                GitemberUITool.showException("Cannot commit", e);
             }
 
             return true;
@@ -225,7 +259,7 @@ public class GitemberServiceImpl {
         if (dialogResult.isPresent()) {
 
             try {
-                GitemberApp.getRepositoryService().createLocalBranch(
+                gitRepositoryService.createLocalBranch(
                         name,
                         dialogResult.get());
                 return true;
@@ -279,7 +313,7 @@ public class GitemberServiceImpl {
                 @Override
                 protected RemoteOperationValue call()  {
                     return remoteRepositoryOperation(
-                            () -> GitemberApp.getRepositoryService().remoteRepositoryPush(
+                            () -> gitRepositoryService.remoteRepositoryPush(
                                     repositoryLoginInfo, refSpec,
                                     new DefaultProgressMonitor((t, d) -> {
                                         updateTitle(t);
@@ -298,13 +332,13 @@ public class GitemberServiceImpl {
         Optional<ButtonType> dialogResult = getDeleteBranchConfirmDialogValue(scmBranch);
         if (dialogResult.isPresent() && dialogResult.get() == ButtonType.OK) {
             try {
-                GitemberApp.getRepositoryService().deleteLocalBranch(scmBranch.getFullName());
+                gitRepositoryService.deleteLocalBranch(scmBranch.getFullName());
             } catch (GECannotDeleteCurrentBranchException e) {
-                GitemberApp.showResult(e.getMessage(), Alert.AlertType.ERROR);
+                GitemberUITool.showResult(e.getMessage(), Alert.AlertType.ERROR);
             } catch (Exception e) {
                 String msg = "Cannot delete local branch " + scmBranch.getFullName();
                 log.log(Level.SEVERE, msg, e);
-                GitemberApp.showException(msg, e);
+                GitemberUITool.showException(msg, e);
             }
         }
     }
@@ -329,10 +363,10 @@ public class GitemberServiceImpl {
         Optional<ButtonType> dialogResult = alert.showAndWait();
         if (dialogResult.isPresent() && dialogResult.get() == ButtonType.OK) {
             try {
-                GitemberApp.getRepositoryService().applyStash(ri.getRevisionFullName());
+                gitRepositoryService.applyStash(ri.getRevisionFullName());
             } catch (GEScmAPIException e) {
                 log.log(Level.SEVERE, "Cannot apply stash " + ri, e);
-                GitemberApp.showResult("Cannot apply stash " + e.getMessage(), Alert.AlertType.ERROR);
+                GitemberUITool.showResult("Cannot apply stash " + e.getMessage(), Alert.AlertType.ERROR);
             }
         }
     }
@@ -342,12 +376,12 @@ public class GitemberServiceImpl {
    /*public void createTagZZZ(boolean push, String tag) {
 
         try {
-            GitemberApp.getRepositoryService().creteTag(tag);
+            gitRepositoryService.creteTag(tag);
             if (push) {
                 final RefSpec refSpec = new RefSpec(":refs/tags/" + tag);
                 final RemoteOperationValueTask remoteOperationValueTask = new RemoteOperationValueTask(this);
                 remoteOperationValueTask.setSupplier(
-                        () -> GitemberApp.getRepositoryService().remoteRepositoryPush(repositoryLoginInfo,  refSpec,
+                        () -> gitRepositoryService.remoteRepositoryPush(repositoryLoginInfo,  refSpec,
                                 remoteOperationValueTask.getProgressMonitor()
                 ));
                 prepareLongTask(remoteOperationValueTask, null, null);
@@ -361,7 +395,7 @@ public class GitemberServiceImpl {
 
     public void createTagZZZ(boolean push, String tag) {
         try {
-            GitemberApp.getRepositoryService().creteTag(tag);
+            gitRepositoryService.creteTag(tag);
 
             if (push) {
 
@@ -371,7 +405,7 @@ public class GitemberServiceImpl {
                     @Override
                     protected RemoteOperationValue call() {
                         return remoteRepositoryOperation(
-                                () -> GitemberApp.getRepositoryService().remoteRepositoryPush(
+                                () -> gitRepositoryService.remoteRepositoryPush(
                                         repositoryLoginInfo,  refSpec,
                                         new DefaultProgressMonitor((t, d) -> {
                                             updateTitle(t);
@@ -385,7 +419,7 @@ public class GitemberServiceImpl {
             }
 
         } catch (GEScmAPIException e) {
-            GitemberApp.showResult("Cannot delete tag " + e.getMessage(), Alert.AlertType.ERROR);
+            GitemberUITool.showResult("Cannot delete tag " + e.getMessage(), Alert.AlertType.ERROR);
         }
 
     }
@@ -393,7 +427,7 @@ public class GitemberServiceImpl {
 
     public void pushToRemoteRepository(String localBranchName, String remoteBranchName) {
 
-        GitemberApp.getRepositoryService().trackRemote(repositoryLoginInfo, localBranchName, remoteBranchName);
+        gitRepositoryService.trackRemote(repositoryLoginInfo, localBranchName, remoteBranchName);
 
         Task<RemoteOperationValue> longTask = new Task<RemoteOperationValue>() {
 
@@ -403,7 +437,7 @@ public class GitemberServiceImpl {
             protected RemoteOperationValue call()  {
                 //remoteRepositoryPull
                 final RemoteOperationValue operationValue = remoteRepositoryOperation(
-                        () -> GitemberApp.getRepositoryService().remoteRepositoryPush(
+                        () -> gitRepositoryService.remoteRepositoryPush(
                                 repositoryLoginInfo,
                                 refSpec,
                                 new DefaultProgressMonitor((t, d) -> {
@@ -414,7 +448,7 @@ public class GitemberServiceImpl {
                 );
 
                 try {
-                    GitemberApp.getRepositoryService().remoteRepositoryPull(
+                    gitRepositoryService.remoteRepositoryPull(
                             localBranchName, repositoryLoginInfo, new DefaultProgressMonitor((t, d) -> {
                                 updateTitle(t);
                                 updateProgress(d, 1.0);
@@ -472,14 +506,14 @@ public class GitemberServiceImpl {
                     repositoryLoginInfo.setRememberMe(tmpGps.isRememberMe());
                     repositoryLoginInfo.setProjectRemoteUrl(tmpGps.getProjectRemoteUrl());
 
-                    GitemberApp.getSettingsService().saveRepositoryCred(repositoryLoginInfo);
+                    Context.getSettingsService().saveRepositoryCred(repositoryLoginInfo);
 
                     operationValue = supplier.get();
                 } else {
                     operationValue = new RemoteOperationValue(
                             RemoteOperationValue.Result.CANCEL, "User cancel operation"
                     );
-                    GitemberApp.showResult(
+                    GitemberUITool.showResult(
                             "Cancel",  Alert.AlertType.INFORMATION
                     );
                 }
@@ -554,7 +588,7 @@ public class GitemberServiceImpl {
                                 onOk.accept(rval);
                             }
                             if (rval.getSecondValue() == null) {
-                                GitemberApp.showResult(info, Alert.AlertType.INFORMATION);
+                                GitemberUITool.showResult(info, Alert.AlertType.INFORMATION);
                             }
                             break;
                         }
@@ -562,7 +596,7 @@ public class GitemberServiceImpl {
                             if (onError != null) {
                                 onError.accept(rval);
                             }
-                            GitemberApp.showResult(info, Alert.AlertType.ERROR);
+                            GitemberUITool.showResult(info, Alert.AlertType.ERROR);
                             break;
                         }
                     }
@@ -580,12 +614,12 @@ public class GitemberServiceImpl {
         Optional<ButtonType> dialogResult = alert.showAndWait();
         if (dialogResult.isPresent() && dialogResult.get() == ButtonType.OK) {
             try {
-                GitemberApp.getRepositoryService().deleteStash(index);
+                gitRepositoryService.deleteStash(index);
                 return true;
 
             } catch (GEScmAPIException e) {
                 log.log(Level.SEVERE, "Cannot delete stash " + ri, e);
-                GitemberApp.showResult("Cannot delete stash " + e.getMessage(), Alert.AlertType.ERROR);
+                GitemberUITool.showResult("Cannot delete stash " + e.getMessage(), Alert.AlertType.ERROR);
             }
         }
         return false;
@@ -597,7 +631,7 @@ public class GitemberServiceImpl {
             @Override
             protected RemoteOperationValue call()  {
                 return remoteRepositoryOperation(
-                        () -> GitemberApp.getRepositoryService().remoteRepositoryFetch(
+                        () -> gitRepositoryService.remoteRepositoryFetch(
                                 repositoryLoginInfo, branchName,
                                 new DefaultProgressMonitor((t, d) -> {
                                     updateTitle(t);
@@ -616,7 +650,7 @@ public class GitemberServiceImpl {
             @Override
             protected RemoteOperationValue call() {
                 return remoteRepositoryOperation(
-                        () -> GitemberApp.getRepositoryService().remoteRepositoryPull(
+                        () -> gitRepositoryService.remoteRepositoryPull(
                                 branchName, repositoryLoginInfo,
                                 new DefaultProgressMonitor((t, d) -> {
                                     updateTitle(t);
@@ -646,7 +680,7 @@ public class GitemberServiceImpl {
 
     public void cloneRepo(final Consumer<RemoteOperationValue> onOk,
                           final Consumer<RemoteOperationValue> onError) {
-        final GitemberSettings gitemberSettings = GitemberApp.getSettingsService().getGitemberSettings();
+        final GitemberSettings gitemberSettings = Context.getSettingsService().getGitemberSettings();
         final Set<String> urls = gitemberSettings
                 .getProjects()
                 .stream()
@@ -667,7 +701,7 @@ public class GitemberServiceImpl {
             GitemberApp.remoteUrl.setValue(repoUrl);
             urls.add(repoUrl);
             // todo add to project after colone !!!!!!!!!!!! gitemberSettings.get  getGiturls().addAll(urls);
-            // GitemberApp.getSettingsService().save();
+            // Context.getSettingsService().save();
             if (repoUrl.startsWith("git@")) {
                 String login = "";
                 try {
@@ -688,7 +722,7 @@ public class GitemberServiceImpl {
 
             }
 
-            GitemberApp.getSettingsService().saveRepositoryCred(this.repositoryLoginInfo);
+            Context.getSettingsService().saveRepositoryCred(this.repositoryLoginInfo);
 
 
 
@@ -696,7 +730,7 @@ public class GitemberServiceImpl {
                 @Override
                 protected RemoteOperationValue call()  {
                     return remoteRepositoryOperation(
-                            () -> GitemberApp.getRepositoryService().cloneRepository(
+                            () -> gitRepositoryService.cloneRepository(
                                     repositoryLoginInfo.getProjectRemoteUrl(),
                                     repositoryLoginInfo.getProjectHameFolder(),
                                     repositoryLoginInfo.getUserName(),
@@ -717,19 +751,19 @@ public class GitemberServiceImpl {
 
     public void createRepo(final Consumer<String> onOk) {
         final DirectoryChooser directoryChooser = new DirectoryChooser();
-        directoryChooser.setInitialDirectory(new File(GitemberApp.getSettingsService().getUserHomeFolder()));
+        directoryChooser.setInitialDirectory(FileUtils.getUserDirectory());
         final File selectedDirectory =
                 directoryChooser.showDialog(GitemberApp.getMainStage());
         if (selectedDirectory != null) {
             String absPath = selectedDirectory.getAbsolutePath();
             try {
-                GitemberApp.getRepositoryService().createRepository(absPath);
+                gitRepositoryService.createRepository(absPath);
                 String repoPath = absPath + File.separator + Const.GIT_FOLDER;
                 log.log(Level.INFO, "New repository was created - " + absPath);
                 onOk.accept(repoPath);
             } catch (Exception e) {
                 log.log(Level.SEVERE, "Cannot create repository", e);
-                GitemberApp.showException("Cannot create repository", e);
+                GitemberUITool.showException("Cannot create repository", e);
             }
 
         }
@@ -738,9 +772,9 @@ public class GitemberServiceImpl {
     public void makeBranchOperation(String title, String header, ThrowingConsumer<String> op) {
         final ArrayList<String> branches = new ArrayList<>();
         try {
-            GitemberApp.getRepositoryService().getLocalBranches().forEach(b -> branches.add(b.getFullName()));
-            GitemberApp.getRepositoryService().getTags().forEach(b -> branches.add(b.getFullName()));
-            GitemberApp.getRepositoryService().getRemoteBranches().forEach(b -> branches.add(b.getFullName()));
+            gitRepositoryService.getLocalBranches().forEach(b -> branches.add(b.getFullName()));
+            gitRepositoryService.getTags().forEach(b -> branches.add(b.getFullName()));
+            gitRepositoryService.getRemoteBranches().forEach(b -> branches.add(b.getFullName()));
 
             ChoiceDialog<String> dialog = new ChoiceDialog<>(branches.get(0), branches);
             dialog.setTitle(title);
@@ -755,9 +789,9 @@ public class GitemberServiceImpl {
             if (e.getCause() != null) {
                 Throwable ex = e.getCause();
                 if (ex instanceof GECheckoutConflictException) {
-                    GitemberApp.showResult(ex.getMessage(), Alert.AlertType.WARNING);
+                    GitemberUITool.showResult(ex.getMessage(), Alert.AlertType.WARNING);
                 } else {
-                    GitemberApp.showException("Error :(", ex);
+                    GitemberUITool.showException("Error :(", ex);
                     log.log(Level.SEVERE, e.getMessage(), ex);
                 }
             }
@@ -771,7 +805,7 @@ public class GitemberServiceImpl {
 
         try {
 
-            final Set<String> files = GitemberApp.getRepositoryService().getAllFiles();
+            final Set<String> files = gitRepositoryService.getAllFiles();
 
             Task<RemoteOperationValue> longTask = new Task<RemoteOperationValue>() {
                 @Override
@@ -780,7 +814,7 @@ public class GitemberServiceImpl {
                     return remoteRepositoryOperation(
                             () -> {
                                 try {
-                                    return GitemberApp.getRepositoryService().blame(
+                                    return gitRepositoryService.blame(
                                             files,
                                             new DefaultProgressMonitor((t, d) -> {
                                                 updateTitle(t);
@@ -810,7 +844,7 @@ public class GitemberServiceImpl {
                         } catch (Exception e) {
                             String msg = "Cannot open statistic report";
                             log.log(Level.WARNING, msg, e);
-                            GitemberApp.showResult(msg, Alert.AlertType.ERROR);
+                            GitemberUITool.showResult(msg, Alert.AlertType.ERROR);
                         }
 
                     },
@@ -821,9 +855,9 @@ public class GitemberServiceImpl {
 
 
             if (ex instanceof GECheckoutConflictException) {
-                GitemberApp.showResult(ex.getMessage(), Alert.AlertType.WARNING);
+                GitemberUITool.showResult(ex.getMessage(), Alert.AlertType.WARNING);
             } else {
-                GitemberApp.showException("Error :(", ex);
+                GitemberUITool.showException("Error :(", ex);
                 log.log(Level.SEVERE, ex.getMessage(), ex);
             }
         }
@@ -845,7 +879,7 @@ public class GitemberServiceImpl {
                 @Override
                 protected RemoteOperationValue call() throws Exception {
                     return remoteRepositoryOperation(
-                            () -> GitemberApp.getRepositoryService().compressDatabase(
+                            () -> gitRepositoryService.compressDatabase(
                                     new DefaultProgressMonitor((t, d) -> {
                                         updateTitle(t);
                                         updateProgress(d, 1.0);
@@ -862,5 +896,66 @@ public class GitemberServiceImpl {
 
     public void setNewRepoInfo(GitemberProjectSettings toRepoInfo) {
         this.repositoryLoginInfo = toRepoInfo;
+    }
+
+    public List<ScmItem> getStatuses(String path) throws Exception {
+        return gitRepositoryService.getStatuses(path);
+    }
+
+    public void stash() throws GEScmAPIException {
+        gitRepositoryService.stash();
+    }
+
+    public void addFileToCommitStage(String shortName) {
+        gitRepositoryService.addFileToCommitStage(shortName);
+    }
+
+    public Pair<String, String> getHead() throws Exception {
+        return gitRepositoryService.getHead();
+    }
+
+    public String saveFile(String first, String second, String fileName) throws IOException {
+        return gitRepositoryService.saveFile(first, second, fileName);
+    }
+
+    public void removeFileFromCommitStage(String shortName) {
+        gitRepositoryService.removeFileFromCommitStage(shortName);
+    }
+
+    public void removeMissedFile(String shortName) throws Exception {
+        gitRepositoryService.removeMissedFile(shortName);
+    }
+
+    public String saveDiff(String treeName, String revisionName, String fileName) throws Exception {
+        return gitRepositoryService.saveDiff(treeName, revisionName, fileName);
+    }
+
+    public String saveDiff(String treeName, String oldRevisionName, String newRevisionName, String fileName) throws Exception {
+        return gitRepositoryService.saveDiff(treeName,oldRevisionName, newRevisionName, fileName);
+    }
+
+    public List<ScmRevisionInformation> getFileHistory(String treeName, String fileName, int limit) throws Exception {
+        return gitRepositoryService.getFileHistory(treeName,fileName, limit);
+    }
+
+    public List<ScmRevisionInformation> getFileHistory(String treeName, String fileName) throws Exception {
+        return gitRepositoryService.getFileHistory(treeName,fileName);
+    }
+
+    public ScmRevisionInformation adapt(PlotCommit newValue, String fileName) {
+        return gitRepositoryService.adapt(newValue, fileName);
+    }
+
+
+    public ArrayList<ScmItem> getScmItems(PlotCommit scmItem, String filePath) {
+        return gitRepositoryService.getScmItems(scmItem, filePath);
+    }
+
+    public PlotCommitList<PlotLane> getCommitsByTree(String treeName, boolean all) throws Exception {
+        return gitRepositoryService.getCommitsByTree(treeName, all);
+    }
+
+    public Repository getRepository() {
+        return gitRepositoryService.getRepository();
     }
 }

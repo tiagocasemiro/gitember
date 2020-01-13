@@ -22,11 +22,10 @@ public class ScmBranch extends Pair<String, String> {
     }
 
     private boolean head;
-
-    private BranchType branchType;
-
     private String remoteName;
-    private String sha;
+
+    private final BranchType branchType;
+    private final String sha;
 
     public ScmBranch(String shortName, String fullName, BranchType branchType, String sha) {
         super(shortName, fullName);
@@ -63,9 +62,6 @@ public class ScmBranch extends Pair<String, String> {
         return branchType;
     }
 
-    public void setBranchType(BranchType branchType) {
-        this.branchType = branchType;
-    }
 
     @Override
     public String toString() {

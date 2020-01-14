@@ -601,10 +601,9 @@ public class WorkingCopyController implements Initializable {
 
             try {
                 final String fileName = item.getShortName();
-                final Pair<String, String> head = Context.getGitemberService().getHead();
+                final CommitInfo head = Context.getGitemberService().getHead();
                 final String oldFile = Context.getGitemberService().saveFile(
-                        head.getFirst(),
-                        head.getSecond(), fileName);
+                        head.getName(), head.getSha(), fileName);
                 final String newFile = "GitemberApp.getCurrentRepositoryPathWOGit()" + File.separator + fileName;
 
                 List<String> newFileLines = Files.readAllLines(Paths.get(newFile));
@@ -614,7 +613,7 @@ public class WorkingCopyController implements Initializable {
                 final DiffViewController fileViewController = new DiffViewController();
                 fileViewController.openFile(
                         new File(fileName).getName(),
-                        oldFile, head.getSecond(),
+                        oldFile, head.getSha(),
                         newFile, "On disk",
                         pathc);
 

@@ -22,7 +22,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.Config;
 import org.eclipse.jgit.lib.Constants;
-import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revplot.PlotCommit;
 import org.eclipse.jgit.revplot.PlotCommitList;
 import org.eclipse.jgit.revplot.PlotLane;
@@ -409,7 +408,7 @@ public class GitemberServiceImpl {
    /*public void createTagZZZ(boolean push, String tag) {
 
         try {
-            gitRepositoryService.creteTag(tag);
+            gitRepositoryService.createTag(tag);
             if (push) {
                 final RefSpec refSpec = new RefSpec(":refs/tags/" + tag);
                 final RemoteOperationValueTask remoteOperationValueTask = new RemoteOperationValueTask(this);
@@ -428,7 +427,7 @@ public class GitemberServiceImpl {
 
     public void createTagZZZ(boolean push, String tag) {
         try {
-            gitRepositoryService.creteTag(tag);
+            gitRepositoryService.createTag(tag);
 
             if (push) {
 
@@ -925,7 +924,7 @@ public class GitemberServiceImpl {
         gitRepositoryService.addFileToCommitStage(shortName);
     }
 
-    public Pair<String, String> getHead() throws Exception {
+    public CommitInfo getHead() throws Exception {
         return gitRepositoryService.getHead();
     }
 
@@ -945,8 +944,8 @@ public class GitemberServiceImpl {
         return gitRepositoryService.saveDiff(treeName, revisionName, fileName);
     }
 
-    public String saveDiff(String treeName, String oldRevisionName, String newRevisionName, String fileName) throws Exception {
-        return gitRepositoryService.saveDiff(treeName,oldRevisionName, newRevisionName, fileName);
+    public String saveFileDiff(String treeName, String oldRevisionName, String newRevisionName, String fileName) throws Exception {
+        return gitRepositoryService.saveFileDiff(treeName,oldRevisionName, newRevisionName, fileName);
     }
 
     public List<ScmRevisionInformation> getFileHistory(String treeName, String fileName, int limit) throws Exception {

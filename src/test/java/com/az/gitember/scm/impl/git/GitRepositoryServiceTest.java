@@ -1,9 +1,12 @@
 package com.az.gitember.scm.impl.git;
 
 
+import com.az.gitember.misc.CommitInfo;
+import com.az.gitember.misc.Pair;
+import com.az.gitember.misc.ScmBranch;
+import com.az.gitember.misc.ScmRevisionInformation;
 import com.az.gitember.scm.exception.GECannotDeleteCurrentBranchException;
 import org.apache.commons.io.FileUtils;
-import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.dircache.DirCache;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.revwalk.RevCommit;
@@ -16,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.List;
 
 import static org.junit.Assert.*;
 
@@ -164,6 +168,63 @@ public class GitRepositoryServiceTest {
         gitRepositoryService.deleteLocalBranch(FN_BR1);
         assertEquals(1, gitRepositoryService.getLocalBranches().size());
     }
+
+    @Test
+    public void getFileHistory() throws Exception {
+        commit();
+        Files.write(Paths.get(tmpGitProject, README_FILE),
+                "\n readme changes 0".getBytes(), StandardOpenOption.APPEND);
+        gitRepositoryService.addFileToCommitStage(README_FILE);
+        gitRepositoryService.commit("Changes in read me");
+        Files.write(Paths.get(tmpGitProject, README_FILE),
+                "\n Bender".getBytes(), StandardOpenOption.APPEND);
+        Files.write(Paths.get(tmpGitProject, IGNORE_FILE),
+                "\n Bender".getBytes(), StandardOpenOption.APPEND);
+
+        gitRepositoryService.addFileToCommitStage(README_FILE);
+        gitRepositoryService.addFileToCommitStage(IGNORE_FILE);
+        gitRepositoryService.commit("Benders added in read me");
+
+        List<ScmRevisionInformation> lst = gitRepositoryService.getFileHistory(FN_MASTER, README_FILE);
+        assertEquals(3, lst.size());
+
+        assertEquals("Benders added in read me", lst.get(0).getShortMessage());
+        assertEquals("Changes in read me", lst.get(1).getShortMessage());
+        assertEquals("Some commit msg", lst.get(2).getShortMessage());
+    }
+
+
+    @Test
+    public void createTag() throws Exception {
+        commit();
+        gitRepositoryService.createTag("t0");
+        gitRepositoryService.createTag("t00");
+        Files.write(Paths.get(tmpGitProject, README_FILE),
+                "\n readme changes 0".getBytes(), StandardOpenOption.APPEND);
+        gitRepositoryService.addFileToCommitStage(README_FILE);
+        gitRepositoryService.commit("Changes in read me");
+        gitRepositoryService.createTag("t1");
+        List<ScmBranch> lst = gitRepositoryService.getTags();
+        assertEquals(3, lst.size());
+        assertEquals("refs/tags/t0", lst.get(0).getShortName());
+        assertEquals("refs/tags/t00", lst.get(1).getShortName());
+        assertEquals("refs/tags/t1", lst.get(2).getShortName());
+    }
+
+    @Test
+    public void getHead() throws Exception {
+        commit();
+        CommitInfo ci = gitRepositoryService.getHead();
+        assertNotNull(ci);
+        assertEquals("refs/heads/master", ci.getName());
+    }
+
+
+
+
+
+
+
 
 
 

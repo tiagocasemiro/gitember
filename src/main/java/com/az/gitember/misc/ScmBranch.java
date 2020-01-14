@@ -3,7 +3,7 @@ package com.az.gitember.misc;
 /**
  * Created by Igor_Azarny on 03 - Dec - 2016
  */
-public class ScmBranch extends Pair<String, String> {
+public class ScmBranch /*extends Pair<String, String>*/ {
 
     public enum BranchType {
         LOCAL("local branch"),
@@ -26,20 +26,23 @@ public class ScmBranch extends Pair<String, String> {
 
     private final BranchType branchType;
     private final String sha;
+    private final String shortName;
+    private final String fullName;
 
     public ScmBranch(String shortName, String fullName, BranchType branchType, String sha) {
-        super(shortName, fullName);
+        this.shortName = shortName;
+        this.fullName = fullName;
         this.branchType = branchType;
         this.sha = sha;
     }
 
 
     public String getShortName() {
-        return super.getFirst();
+        return shortName;
     }
 
     public String getFullName() {
-        return super.getSecond();
+        return fullName;
     }
 
     public boolean isHead() {
@@ -62,12 +65,15 @@ public class ScmBranch extends Pair<String, String> {
         return branchType;
     }
 
+    public String getSha() {
+        return sha;
+    }
 
     @Override
     public String toString() {
         return "ScmBranch{" +
-                "short=" + super.getFirst() +
-                "full=" + super.getSecond() +
+                "short=" + shortName +
+                "sha=" + sha +
                 "head=" + head +
                 ", branchType=" + branchType +
                 ", remoteName='" + remoteName + '\'' +

@@ -246,7 +246,7 @@ public class CommitViewController implements Initializable {
         final String newRevisionName = lastCommit.getRevisionFullName();
 
         final String newFile = Context.getGitemberService().saveFile(treeName, newRevisionName, fileName);
-        final String diffFile = Context.getGitemberService().saveDiff(treeName, oldRevisionName, newRevisionName, fileName);
+        final String diffFile = Context.getGitemberService().saveFileDiff(treeName, oldRevisionName, newRevisionName, fileName);
         final DiffViewController fileViewController = new DiffViewController();
         fileViewController.openFile(
                 new File(fileName).getName(),

@@ -302,6 +302,166 @@ public class GitRepositoryService {
     }
 
 
+    /**
+     * Get list of revision, where given file was changed
+     *
+     * @param treeName tree name
+     * @param fileName given fileName
+     * @return list of revisions where file was changed.
+     * @throws Exception
+     */
+    public List<ScmRevisionInformation> getFileHistory(final String treeName, final String fileName) throws Exception {
+        return getFileHistory(treeName, fileName, Integer.MAX_VALUE);
+    }
+
+    /**
+     * Get list of revision, where given file was changed
+     *
+     * @param treeName tree name
+     * @param fileName given fileName
+     * @param limit    limit for history items
+     * @return list of revisions where file was changed.
+     * @throws Exception
+     */
+    public List<ScmRevisionInformation> getFileHistory(final String treeName,
+                                                       final String fileName,
+                                                       final int limit) throws Exception {
+        final ArrayList<ScmRevisionInformation> rez = new ArrayList<>();
+        try (Git git = new Git(repository)) {
+            final LogCommand cmd = git.log()
+                    .add(repository.resolve(treeName))
+                    .setRevFilter(RevFilter.ALL)
+                    .addPath(fileName);
+            final Iterable<RevCommit> revCommits = cmd.call();
+            for (RevCommit revCommit : revCommits) {
+                final ScmRevisionInformation info = adapt(revCommit, fileName);
+                rez.add(info);
+                if (rez.size() >= limit) {
+                    break;
+                }
+            }
+        }
+        return rez;
+    }
+
+    public List<ScmBranch> getTags() {
+        try (Git git = new Git(repository)) {
+            List<Ref> branchLst = git.tagList().call();
+            return branchLst
+                    .stream()
+                    .map(r -> new ScmBranch(
+                            r.getName(),
+                            r.getName(),
+                            ScmBranch.BranchType.TAG,
+                            r.getObjectId().getName()))
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.log(Level.SEVERE, "Cannot get tags", e);
+        }
+        return Collections.emptyList();
+    }
+
+    /**
+     * Create new tag
+     *
+     * @param tagName tag name
+     */
+    public Ref createTag(String tagName) throws GEScmAPIException {
+
+        try (Git git = new Git(repository)) {
+            return git.tag()
+                    .setName(tagName)
+                    .setForceUpdate(true)
+                    .setAnnotated(true)
+                    .call();
+        } catch (Exception e) {
+            log.log(Level.SEVERE, "Cannot create tag", e);
+            throw new GEScmAPIException(e.getMessage());
+        }
+    }
+
+    public CommitInfo getHead() throws Exception {
+        final Ref head = repository.exactRef(Constants.HEAD);
+        return new CommitInfo(
+                head.getTarget().getName(),
+                head.getObjectId() == null ? null : head.getObjectId().getName()
+        );
+    }
+
+    public String saveFileDiff(String treeName, String oldRevision, String newRevision, String fileName) throws Exception {
+
+        final File temp = File.createTempFile(Const.TEMP_FILE_PREFIX, Const.DIFF_EXTENSION);
+        GitRepositoryService.deleteOnExit(temp);
+
+        AbstractTreeIterator oldTreeParser = prepareTreeParser(repository, oldRevision);
+        AbstractTreeIterator newTreeParser = prepareTreeParser(repository, newRevision);
+
+        try (Git git = new Git(repository); OutputStream outputStream = new FileOutputStream(temp)) {
+            List<DiffEntry> diff = git.diff().
+                    setOldTree(oldTreeParser).
+                    setNewTree(newTreeParser).
+                    setPathFilter(PathFilter.create(fileName)).
+                    call();
+            for (DiffEntry entry : diff) {
+                //System.out.println("Entry: " + entry + ", from: " + entry.getOldId() + ", to: " + entry.getNewId());
+                try (DiffFormatter formatter = new DiffFormatter(outputStream)) {
+                    formatter.setRepository(repository);
+                    formatter.format(entry);
+                }
+            }
+        }
+
+        return temp.getAbsolutePath();
+
+
+    }
+
+    /**
+     * Save given fileName at tree/revision into output stream.
+     *
+     * @param treeName     tree name
+     * @param revisionName revision name
+     * @param fileName     file name in repository
+     * @return absolute path to saved diff file
+     */
+    public String saveDiff(String treeName, String revisionName,
+                               String fileName) throws Exception {
+
+        final File temp = File.createTempFile(Const.TEMP_FILE_PREFIX, Const.DIFF_EXTENSION);
+        GitRepositoryService.deleteOnExit(temp);
+
+        try (Git git = new Git(repository);
+             RevWalk rw = new RevWalk(repository);
+             OutputStream outputStream = new FileOutputStream(temp)) {
+
+            final LogCommand cmd = git.log()
+                    .add(repository.resolve(treeName))
+                    .setRevFilter(new SingleRevisionFilter(revisionName))
+                    .addPath(fileName);
+
+            final Iterable<RevCommit> revCommits = cmd.call();
+            final RevCommit revCommit = revCommits.iterator().next();
+
+            if (revCommit != null) {
+                final DiffFormatter df = getDiffFormatter(fileName);
+                final List<DiffEntry> diffs = df.scan(
+                        revCommit.getParentCount() > 0 ? rw.parseCommit(revCommit.getParent(0).getId()).getTree() : null,
+                        revCommit.getTree());
+                final DiffEntry diffEntry = diffs.get(0);
+
+                try (DiffFormatter formatter = new DiffFormatter(outputStream)) {
+                    formatter.setRepository(repository);
+                    formatter.format(diffEntry);
+                }
+
+            }
+            rw.dispose();
+
+        }
+        return temp.getAbsolutePath();
+
+    }
+
 
     //-------------------------------------------------------------------------------------------
 
@@ -339,13 +499,16 @@ public class GitRepositoryService {
         return null;
     }
 
+
+
+    //--------------------------------------------------------------------------------------------------------
+
     private List<ScmBranch> getBranches(final ListBranchCommand.ListMode listMode,
                                         final String prefix,
                                         final ScmBranch.BranchType branchType) throws Exception {
 
         try (Git git = new Git(repository)) {
-            Pair<String, String> head = this.getHead();
-            String headName = head.getFirst();
+            CommitInfo head = this.getHead();
 
             List<Ref> branchLst = git.branchList().setListMode(listMode).call();
 
@@ -360,7 +523,7 @@ public class GitRepositoryService {
 
                     ))
                     .map(i -> {
-                        i.setHead(i.getFullName().equals(headName));
+                        i.setHead(i.getFullName().equals(head.getName()));
                         return i;
                     })
                     .sorted((o1, o2) -> o1.getShortName().compareTo(o2.getShortName()))
@@ -391,32 +554,10 @@ public class GitRepositoryService {
         }
     }
 
-    public List<ScmBranch> getTags() {
-        try (Git git = new Git(repository)) {
-            List<Ref> branchLst = git.tagList().call();
-            return branchLst
-                    .stream()
-                    .map(r -> new ScmBranch(
-                            r.getName(),
-                            r.getName(),
-                            ScmBranch.BranchType.TAG,
-                            r.getObjectId().getName()))
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            log.log(Level.SEVERE, "Cannot get tags", e);
-        }
-        return Collections.emptyList();
-    }
 
 
-    public Pair<String, String> getHead() throws Exception {
-        final Ref head = repository.exactRef(Constants.HEAD);
-        return new Pair<>(
-                head.getTarget().getName(),
-                head.getObjectId() == null ? null : head.getObjectId().getName()
-        );
 
-    }
+
 
 
 
@@ -519,47 +660,7 @@ public class GitRepositoryService {
 
 
 
-    /**
-     * Get list of revision, where given file was changed
-     *
-     * @param treeName tree name
-     * @param fileName given fileName
-     * @return list of revisions where file was changed.
-     * @throws Exception
-     */
-    public List<ScmRevisionInformation> getFileHistory(final String treeName, final String fileName) throws Exception {
-        return getFileHistory(treeName, fileName, Integer.MAX_VALUE);
-    }
 
-    /**
-     * Get list of revision, where given file was changed
-     *
-     * @param treeName tree name
-     * @param fileName given fileName
-     * @param limit    limit for history items
-     * @return list of revisions where file was changed.
-     * @throws Exception
-     */
-    public List<ScmRevisionInformation> getFileHistory(final String treeName,
-                                                       final String fileName,
-                                                       final int limit) throws Exception {
-        final ArrayList<ScmRevisionInformation> rez = new ArrayList<>();
-        try (Git git = new Git(repository)) {
-            final LogCommand cmd = git.log()
-                    .add(repository.resolve(treeName))
-                    .setRevFilter(RevFilter.ALL)
-                    .addPath(fileName);
-            final Iterable<RevCommit> revCommits = cmd.call();
-            for (RevCommit revCommit : revCommits) {
-                final ScmRevisionInformation info = adapt(revCommit, fileName);
-                rez.add(info);
-                if (rez.size() >= limit) {
-                    break;
-                }
-            }
-        }
-        return rez;
-    }
 
 
     /**
@@ -744,90 +845,12 @@ public class GitRepositoryService {
         }
     }
 
-    /*private void v2() {
-        System.out.println("$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
-        try {
-            Collection<Ref> allRefs = repository.getAllRefs().values();
-
-            // a RevWalk allows to walk over commits based on some filtering that is defined
-            try (RevWalk revWalk = new RevWalk(repository)) {
-                for (Ref ref : allRefs) {
-                    revWalk.markStart(revWalk.parseCommit(ref.getObjectId()));
-                }
-                System.out.println("Walking all commits starting with " + allRefs.size() + " refs: " + allRefs);
-                System.out.println();
-                int count = 0;
-                for (RevCommit commit : revWalk) {
-                    System.out.println("Commit: " + commit.toString()
-                            + " "  + commit.getShortMessage()
-                    );
-                    count++;
-                }
-                System.out.println("\nHad " + count + " commits");
-            }
 
 
-        } catch (Exception e) {
-            log.log(Level.SEVERE, "dddddddddddddd", e);
-            e.printStackTrace();
-        }
-    }*/
-
-    /*private void v1() {
-        System.out.println("######################################");
-        try (Git git = new Git(repository)) {
-            ObjectId master = repository.resolve("refs/heads/master");
-            ObjectId branch1 = repository.resolve("refs/heads/br1");
-            ObjectId branch2 = repository.resolve("refs/heads/br2");
-
-            Iterable<RevCommit> commits = git.log().call();
-            commits.forEach(
-                    revCommit -> {
-                        System.out.println(revCommit.getFullMessage());
-                    }
-            );
-
-        } catch (Exception e) {
-            log.log(Level.SEVERE, "adsfdfadffs", e);
-            e.printStackTrace();
-        }
-
-    }*/
-
-
-
-
-    public String saveDiff(String treeName, String oldRevision, String newRevision, String fileName) throws Exception {
-
-        final File temp = File.createTempFile(Const.TEMP_FILE_PREFIX, Const.DIFF_EXTENSION);
-        GitRepositoryService.deleteOnExit(temp);
-
-        AbstractTreeIterator oldTreeParser = prepareTreeParser(repository, oldRevision);
-        AbstractTreeIterator newTreeParser = prepareTreeParser(repository, newRevision);
-
-        try (Git git = new Git(repository); OutputStream outputStream = new FileOutputStream(temp)) {
-            List<DiffEntry> diff = git.diff().
-                    setOldTree(oldTreeParser).
-                    setNewTree(newTreeParser).
-                    setPathFilter(PathFilter.create(fileName)).
-                    call();
-            for (DiffEntry entry : diff) {
-                //System.out.println("Entry: " + entry + ", from: " + entry.getOldId() + ", to: " + entry.getNewId());
-                try (DiffFormatter formatter = new DiffFormatter(outputStream)) {
-                    formatter.setRepository(repository);
-                    formatter.format(entry);
-                }
-            }
-        }
-
-        return temp.getAbsolutePath();
-
-
-    }
 
     private AbstractTreeIterator prepareTreeParser(Repository repository, String objectId) throws IOException {
         // from the commit we can build the tree which allows us to construct the TreeParser
-        //noinspection Duplicates
+        // noinspection Duplicates
         try (RevWalk walk = new RevWalk(repository)) {
             RevCommit commit = walk.parseCommit(ObjectId.fromString(objectId));
             RevTree tree = walk.parseTree(commit.getTree().getId());
@@ -844,66 +867,9 @@ public class GitRepositoryService {
     }
 
 
-    /**
-     * Create new tag
-     *
-     * @param tagName tag name
-     */
-    public Ref creteTag(String tagName) throws GEScmAPIException {
 
-        try (Git git = new Git(repository);) {
-            return git.tag().setName(tagName).setForceUpdate(true).setAnnotated(true).call();
-        } catch (Exception e) {
-            log.log(Level.SEVERE, "Cannot create tag", e);
-            throw new GEScmAPIException(e.getMessage());
-        }
-    }
 
-    /**
-     * Save given fileName at tree/revision into output stream.
-     *
-     * @param treeName     tree name
-     * @param revisionName revision name
-     * @param fileName     file name in repository
-     * @return absolute path to saved diff file
-     */
-    public String saveDiff(String treeName, String revisionName,
-                           String fileName) throws Exception {
 
-        final File temp = File.createTempFile(Const.TEMP_FILE_PREFIX, Const.DIFF_EXTENSION);
-        GitRepositoryService.deleteOnExit(temp);
-
-        try (Git git = new Git(repository);
-             RevWalk rw = new RevWalk(repository);
-             OutputStream outputStream = new FileOutputStream(temp)) {
-
-            final LogCommand cmd = git.log()
-                    .add(repository.resolve(treeName))
-                    .setRevFilter(new SingleRevisionFilter(revisionName))
-                    .addPath(fileName);
-
-            final Iterable<RevCommit> revCommits = cmd.call();
-            final RevCommit revCommit = revCommits.iterator().next();
-
-            if (revCommit != null) {
-                final DiffFormatter df = getDiffFormatter(fileName);
-                final List<DiffEntry> diffs = df.scan(
-                        revCommit.getParentCount() > 0 ? rw.parseCommit(revCommit.getParent(0).getId()).getTree() : null,
-                        revCommit.getTree());
-                final DiffEntry diffEntry = diffs.get(0);
-
-                try (DiffFormatter formatter = new DiffFormatter(outputStream)) {
-                    formatter.setRepository(repository);
-                    formatter.format(diffEntry);
-                }
-
-            }
-            rw.dispose();
-
-        }
-        return temp.getAbsolutePath();
-
-    }
 
 
     /**

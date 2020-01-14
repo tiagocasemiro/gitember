@@ -19,6 +19,7 @@ import javafx.scene.control.*;
 import javafx.stage.DirectoryChooser;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.Config;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.Repository;
@@ -270,7 +271,7 @@ public class GitemberServiceImpl {
             Context.getSettingsService().save();
             try {
                 gitRepositoryService.commit(result.get());
-            } catch (GEScmAPIException e) {
+            } catch (Exception e) {
                 GitemberUITool.showException("Cannot commit", e);
             }
 
@@ -920,7 +921,7 @@ public class GitemberServiceImpl {
         gitRepositoryService.stash();
     }
 
-    public void addFileToCommitStage(String shortName) {
+    public void addFileToCommitStage(String shortName) throws GitAPIException {
         gitRepositoryService.addFileToCommitStage(shortName);
     }
 
@@ -932,7 +933,7 @@ public class GitemberServiceImpl {
         return gitRepositoryService.saveFile(first, second, fileName);
     }
 
-    public void removeFileFromCommitStage(String shortName) {
+    public void removeFileFromCommitStage(String shortName) throws Exception {
         gitRepositoryService.removeFileFromCommitStage(shortName);
     }
 

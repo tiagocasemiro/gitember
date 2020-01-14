@@ -5,6 +5,7 @@ import com.az.gitember.scm.exception.GEScmAPIException;
 import com.az.gitember.service.Context;
 import com.az.gitember.ui.AutoCompleteTextField;
 import com.az.gitember.ui.StatusCellValueFactory;
+import com.jcraft.jsch.IO;
 import com.sun.javafx.binding.StringConstant;
 import difflib.DiffUtils;
 import difflib.Patch;
@@ -578,8 +579,12 @@ public class WorkingCopyController implements Initializable {
         final ScmItem item = (ScmItem) workingCopyTableView.getSelectionModel().getSelectedItem();
         if (item != null) {
             Context.getGitemberService().checkoutFile(item.getShortName(), stage);
-            Context.getGitemberService().addFileToCommitStage(item.getShortName());
-            open(branch, item.getShortName());
+            try {
+                Context.getGitemberService().addFileToCommitStage(item.getShortName());
+                open(branch, item.getShortName());
+            } catch (Exception e) {
+                GitemberUITool.showException("Cannot resolve conflict adding file " + item.getShortName(), e);
+            }
         }
     }
 

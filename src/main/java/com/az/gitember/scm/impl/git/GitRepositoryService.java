@@ -64,17 +64,21 @@ public class GitRepositoryService {
 
     private final StoredConfig config;
 
+
+
     /**
      * Construct service, which work with git. Each service designated to work with the new repo.
      * So we can have create project setting here form given folder
      * and trannsfer to to global config.
      *
      * @param gitFolder folder with git repository, for example "~/project/.git"
-     * @throws IOException
+     * @throws IOException in case of error
      */
     public GitRepositoryService(final String gitFolder) throws IOException {
         this.repository = GitUtil.openRepository(gitFolder);
-        this.config = repository.getConfig();/*
+        this.config = repository.getConfig();
+
+        /*
         String userName = config.getString(ConfigConstants.CONFIG_USER_SECTION, null, ConfigConstants.CONFIG_KEY_NAME);
         String userEMail = config.getString(ConfigConstants.CONFIG_USER_SECTION, null, ConfigConstants.CONFIG_KEY_EMAIL);
         String projectRemoteUrl =  config.getString(ConfigConstants.CONFIG_KEY_REMOTE, Constants.DEFAULT_REMOTE_NAME, ConfigConstants.CONFIG_KEY_URL);
@@ -92,7 +96,7 @@ public class GitRepositoryService {
      *
      * @param absPath path to repository.
      */
-    public void createRepository(final String absPath) throws Exception {
+    public static void createRepository(final String absPath) throws Exception {
         try (final Git git = Git.init()
                 .setDirectory(new File(absPath))
                 .call()) {
@@ -109,6 +113,197 @@ public class GitRepositoryService {
                     "target/\nbuild/\n".getBytes(),  StandardOpenOption.CREATE);
         }
     }
+
+    /**
+     * Add file to stage before commit.
+     *
+     * @param fileName given name
+     * @throws GitAPIException in case of error
+     */
+    public DirCache addFileToCommitStage(final String fileName) throws GitAPIException {
+        try (Git git = new Git(repository)) {
+            return git.add().addFilepattern(fileName).call();
+        } catch (GitAPIException e) {
+            log.log(Level.WARNING, "Cannot add file to stage", e);
+            throw e;
+        }
+    }
+
+    /**
+     * Git reset HEAD ...
+     *
+     * @param fileName fiven file name
+     * @throws GitAPIException in case of error
+     */
+    public Ref removeFileFromCommitStage(final String fileName) throws GitAPIException {
+        try (Git git = new Git(repository)) {
+            return git.reset().addPath(fileName).call();
+        } catch (GitAPIException e) {
+            log.log(Level.WARNING, "Cannot unstage stage", e);
+            throw e;
+        }
+    }
+
+    /**
+     * Commit changes.
+     *
+     * @param message                     commit message
+     * @return result.
+     * @throws GitAPIException in case of error
+     */
+    public RevCommit commit(final String message) throws GitAPIException {
+        try (Git git = new Git(repository)) {
+            final CommitCommand cmd = git
+                    .commit()
+                    .setMessage(message);
+            return cmd.call();
+        } catch (GitAPIException e) {
+            log.log(Level.SEVERE, "Cannot commit", e);
+            throw e;
+        }
+    }
+
+    /**
+     * Get all files in head
+     * @return all files in head
+     * @throws IOException in case of error
+     */
+    public Set<String> getAllFiles() throws IOException {
+        return getAllFiles(Constants.HEAD);
+    }
+
+    /**
+     * Get all files in given name
+     * @return all files in head
+     * @throws IOException in case of error
+     */
+    public Set<String> getAllFiles(String name) throws IOException {
+        final Set<String> rez = new TreeSet<>();
+
+        final Ref head = repository.exactRef(name);
+        final RevWalk walk = new RevWalk(repository);
+        final RevCommit commit = walk.parseCommit(head.getObjectId());
+        final RevTree tree = commit.getTree();
+        final TreeWalk treeWalk = new TreeWalk(repository);
+
+        treeWalk.addTree(tree);
+        treeWalk.setRecursive(true);
+
+        while (treeWalk.next()) {
+            if (treeWalk.isSubtree()) {
+                treeWalk.enterSubtree();
+            } else {
+                final String path = treeWalk.getPathString();
+                rez.add(path);
+            }
+        }
+        return rez;
+    }
+
+    /**
+     * Create new branch.
+     * @param parent from
+     * @param name new name
+     * @return ref to new branch
+     * @throws GEScmAPIException in case of error
+     */
+    public Ref createLocalBranch(String parent, String name) throws GEScmAPIException {
+        try (Git git = new Git(repository)) {
+            return git.branchCreate()
+                    .setStartPoint(parent)
+                    .setName(name)
+                    .call();
+        } catch (Exception e) {
+            throw new GEScmAPIException("Cannot checkout", e);
+        }
+
+    }
+
+    /**
+     * Delete local branch
+     * @param name
+     * @throws GECannotDeleteCurrentBranchException
+     * @throws GEScmAPIException
+     */
+    public void deleteLocalBranch(final String name) throws GECannotDeleteCurrentBranchException, GEScmAPIException {
+        try (Git git = new Git(repository)) {
+            git.branchDelete()
+                    .setBranchNames(name)
+                    .setForce(true)
+                    .call();
+        } catch (CannotDeleteCurrentBranchException e) {
+            throw new GECannotDeleteCurrentBranchException("Cannot delete current branch", e);
+        } catch (Exception e) {
+            throw new GEScmAPIException("Cannot delete branch ", e);
+        }
+
+    }
+
+    public Ref checkoutLocalBranch(final String name) throws GECheckoutConflictException, GEScmAPIException {
+        return checkoutLocalBranch(name, null);
+    }
+
+    public Ref checkoutLocalBranch(final String name, final String newName) throws GECheckoutConflictException, GEScmAPIException {
+        try (Git git = new Git(repository)) {
+            if (newName == null) {
+                return git.checkout()
+                        .setCreateBranch(false)
+                        .setName(name)
+                        .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.SET_UPSTREAM)
+                        .call();
+            } else {
+                return git.checkout()
+                        .setCreateBranch(true)
+                        .setName(newName)
+                        .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.TRACK)
+                        .setStartPoint(name)
+                        .call();
+            }
+        } catch (CheckoutConflictException e) {
+            throw new GECheckoutConflictException(e.getMessage(), e.getConflictingPaths());
+        } catch (Exception e) {
+            throw new GEScmAPIException("Cannot checkout", e);
+        }
+
+    }
+
+
+
+
+    /**
+     * Merge two branches. The "to" must be checkouted.
+     *
+     * @param from    branch name
+     * @param message merge message
+     * @throws Exception
+     */
+    public MergeResult mergeLocalBranch(final String from, final String message) throws Exception {
+        try (Git git = new Git(repository)) {
+            return git.merge()
+                    .include(repository.exactRef(from))
+                    .setMessage(message)
+                    .call();
+        }
+    }
+
+    /**
+     * Get list of local branches.
+     *
+     * @return list of local branches.
+     */
+    public List<ScmBranch> getLocalBranches() {
+        try {
+            return getBranches(ListBranchCommand.ListMode.ALL, Constants.R_HEADS,
+                    ScmBranch.BranchType.LOCAL);
+        } catch (Exception e) {
+            log.log(Level.SEVERE, "Cannot get local branches", e);
+        }
+        return Collections.emptyList();
+    }
+
+
+
+    //-------------------------------------------------------------------------------------------
 
 
     /**
@@ -223,20 +418,7 @@ public class GitRepositoryService {
 
     }
 
-    /**
-     * Get list of local branches.
-     *
-     * @return list of local branches.
-     */
-    public List<ScmBranch> getLocalBranches() {
-        try {
-            return getBranches(ListBranchCommand.ListMode.ALL, Constants.R_HEADS,
-                    ScmBranch.BranchType.LOCAL);
-        } catch (Exception e) {
-            log.log(Level.SEVERE, "Cannot get local branches", e);
-        }
-        return Collections.emptyList();
-    }
+
 
     public List<ScmBranch> getRemoteBranches() {
         try {
@@ -334,28 +516,7 @@ public class GitRepositoryService {
         return rez;
     }
 
-    public Set<String> getAllFiles() throws IOException {
-        final Set<String> rez = new TreeSet<>();
 
-        final Ref head = repository.exactRef(Constants.HEAD);
-        final RevWalk walk = new RevWalk(repository);
-        final RevCommit commit = walk.parseCommit(head.getObjectId());
-        final RevTree tree = commit.getTree();
-        final TreeWalk treeWalk = new TreeWalk(repository);
-
-        treeWalk.addTree(tree);
-        treeWalk.setRecursive(true);
-
-        while (treeWalk.next()) {
-            if (treeWalk.isSubtree()) {
-                treeWalk.enterSubtree();
-            } else {
-                final String path = treeWalk.getPathString();
-                rez.add(path);
-            }
-        }
-        return rez;
-    }
 
 
     /**
@@ -876,35 +1037,7 @@ public class GitRepositoryService {
     }
 
 
-    /**
-     * Add file to stage before commit.
-     *
-     * @param fileName
-     * @throws Exception
-     */
-    public void addFileToCommitStage(final String fileName) {
-        try (Git git = new Git(repository)) {
-            git.add().addFilepattern(fileName).call();
-        } catch (GitAPIException e) {
-            log.log(Level.WARNING, "Cannot add file to stage", e);
-        }
-    }
 
-    /**
-     * git reset HEAD ...
-     *
-     * @param fileName
-     * @throws Exception
-     */
-    public void removeFileFromCommitStage(final String fileName) {
-        try (Git git = new Git(repository)) {
-            git.reset().addPath(fileName).call();
-        } catch (GitAPIException e) {
-            log.log(Level.WARNING, "Cannot unstage stage", e);
-        }
-
-
-    }
 
 
     /**
@@ -969,24 +1102,7 @@ public class GitRepositoryService {
         return rezInfo.toString();
     }
 
-    /**
-     * Commit changes.
-     *
-     * @param message                     commit message
-     * @return result.
-     * @throws GEScmAPIException
-     */
-    public RevCommit commit(final String message) throws GEScmAPIException {
-        try (Git git = new Git(repository)) {
-            final CommitCommand cmd = git
-                    .commit()
-                    .setMessage(message);
-            return cmd.call();
-        } catch (GitAPIException e) {
-            log.log(Level.SEVERE, "Cannot commit", e);
-            throw new GEScmAPIException(e.getMessage());
-        }
-    }
+
 
     public void removeMissedFile(String fileName) throws Exception {
         try (Git git = new Git(repository)) {
@@ -1494,72 +1610,7 @@ public class GitRepositoryService {
         }
     }
 
-    public Ref createLocalBranch(String parent, String name) throws GEScmAPIException {
-        try (Git git = new Git(repository)) {
-            return git.branchCreate()
-                    .setStartPoint(parent)
-                    .setName(name)
-                    .call();
-        } catch (Exception e) {
-            throw new GEScmAPIException("Cannot checkout", e);
-        }
 
-    }
-
-    public Ref checkoutLocalBranch(final String name, final String newName) throws GECheckoutConflictException, GEScmAPIException {
-        try (Git git = new Git(repository)) {
-            if (newName == null) {
-                return git.checkout()
-                        .setCreateBranch(false)
-                        .setName(name)
-                        .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.SET_UPSTREAM)
-                        .call();
-            } else {
-                return git.checkout()
-                        .setCreateBranch(true)
-                        .setName(newName)
-                        .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.TRACK)
-                        .setStartPoint(name)
-                        .call();
-            }
-        } catch (CheckoutConflictException e) {
-            throw new GECheckoutConflictException(e.getMessage(), e.getConflictingPaths());
-        } catch (Exception e) {
-            throw new GEScmAPIException("Cannot checkout", e);
-        }
-
-    }
-
-
-    public void deleteLocalBranch(final String name) throws GECannotDeleteCurrentBranchException, GEScmAPIException {
-        try (Git git = new Git(repository)) {
-            git.branchDelete()
-                    .setBranchNames(name)
-                    .setForce(true)
-                    .call();
-        } catch (CannotDeleteCurrentBranchException e) {
-            throw new GECannotDeleteCurrentBranchException("Cannot delete current branch", e);
-        } catch (Exception e) {
-            throw new GEScmAPIException("Cannot delete branch ", e);
-        }
-
-    }
-
-    /**
-     * Merge two branches. The "to" must be checkouted.
-     *
-     * @param from    branch name
-     * @param message merge message
-     * @throws Exception
-     */
-    public MergeResult mergeLocalBranch(final String from, final String message) throws Exception {
-        try (Git git = new Git(repository)) {
-            return git.merge()
-                    .include(repository.exactRef(from))
-                    .setMessage(message)
-                    .call();
-        }
-    }
 
     public void checkoutFile(final String fileName, Stage stage) {
 

@@ -388,79 +388,87 @@ public class GitRepositoryService {
         );
     }
 
-    public String saveFileDiff(String treeName, String oldRevision, String newRevision, String fileName) throws Exception {
 
-        final File temp = File.createTempFile(Const.TEMP_FILE_PREFIX, Const.DIFF_EXTENSION);
-        GitRepositoryService.deleteOnExit(temp);
-
-        AbstractTreeIterator oldTreeParser = prepareTreeParser(repository, oldRevision);
-        AbstractTreeIterator newTreeParser = prepareTreeParser(repository, newRevision);
-
-        try (Git git = new Git(repository); OutputStream outputStream = new FileOutputStream(temp)) {
-            List<DiffEntry> diff = git.diff().
-                    setOldTree(oldTreeParser).
-                    setNewTree(newTreeParser).
-                    setPathFilter(PathFilter.create(fileName)).
-                    call();
-            for (DiffEntry entry : diff) {
-                //System.out.println("Entry: " + entry + ", from: " + entry.getOldId() + ", to: " + entry.getNewId());
-                try (DiffFormatter formatter = new DiffFormatter(outputStream)) {
-                    formatter.setRepository(repository);
-                    formatter.format(entry);
-                }
-            }
+    /**
+     * Create stash
+     *
+     * @throws GEScmAPIException in case of error.
+     */
+    public void stash() throws GEScmAPIException {
+        try (Git git = new Git(repository)) {
+            git.stashCreate().call();
+        } catch (GitAPIException e) {
+            throw new GEScmAPIException(e.getMessage(), e.getCause());
         }
-
-        return temp.getAbsolutePath();
-
-
     }
 
     /**
-     * Save given fileName at tree/revision into output stream.
+     * Get stash list.
      *
-     * @param treeName     tree name
-     * @param revisionName revision name
-     * @param fileName     file name in repository
-     * @return absolute path to saved diff file
+     * @return list of stashed changes
      */
-    public String saveDiff(String treeName, String revisionName,
-                               String fileName) throws Exception {
-
-        final File temp = File.createTempFile(Const.TEMP_FILE_PREFIX, Const.DIFF_EXTENSION);
-        GitRepositoryService.deleteOnExit(temp);
-
-        try (Git git = new Git(repository);
-             RevWalk rw = new RevWalk(repository);
-             OutputStream outputStream = new FileOutputStream(temp)) {
-
-            final LogCommand cmd = git.log()
-                    .add(repository.resolve(treeName))
-                    .setRevFilter(new SingleRevisionFilter(revisionName))
-                    .addPath(fileName);
-
-            final Iterable<RevCommit> revCommits = cmd.call();
-            final RevCommit revCommit = revCommits.iterator().next();
-
-            if (revCommit != null) {
-                final DiffFormatter df = getDiffFormatter(fileName);
-                final List<DiffEntry> diffs = df.scan(
-                        revCommit.getParentCount() > 0 ? rw.parseCommit(revCommit.getParent(0).getId()).getTree() : null,
-                        revCommit.getTree());
-                final DiffEntry diffEntry = diffs.get(0);
-
-                try (DiffFormatter formatter = new DiffFormatter(outputStream)) {
-                    formatter.setRepository(repository);
-                    formatter.format(diffEntry);
-                }
-
-            }
-            rw.dispose();
-
+    public List<ScmRevisionInformation> getStashList() {
+        try (Git git = new Git(repository)) {
+            return git.stashList()
+                    .call()
+                    .stream()
+                    .map(revCommit -> adapt(revCommit, null))
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.log(Level.SEVERE, "Cannot get tags", e);
         }
-        return temp.getAbsolutePath();
-
+        return Collections.emptyList();
     }
+
+    /**
+     * Delete stash.
+     *
+     * @param stashRef stash reference id.
+     * @throws GEScmAPIException in case of errors.
+     */
+    public void deleteStash(int stashRef) throws GEScmAPIException {
+        try (Git git = new Git(repository)) {
+            git.stashDrop()
+                    .setStashRef(stashRef)
+                    .call();
+        } catch (GitAPIException e) {
+            throw new GEScmAPIException(e.getMessage(), e.getCause());
+        }
+    }
+
+    /**
+     * Apply stash.
+     *
+     * @param stashRef stash ref
+     * @throws GEScmAPIException in case of errors.
+     */
+    public void applyStash(String stashRef) throws GEScmAPIException {
+        try (Git git = new Git(repository)) {
+            git.stashApply()
+                    .setStashRef(stashRef)
+                    .call();
+        } catch (GitAPIException e) {
+            throw new GEScmAPIException(e.getMessage(), e.getCause());
+        }
+    }
+
+    public void checkoutFile(final String fileName, Stage stage) {
+
+        try (Git git = new Git(repository)) {
+            try {
+                CheckoutCommand cmd = git.checkout().addPath(fileName);
+                if (stage != null) {
+                    cmd.setStage(adaptStage(stage));
+                }
+                cmd.call();
+            } catch (JGitInternalException | GitAPIException e) {
+                log.log(Level.WARNING, "Cannot checkout file " + fileName, e);
+                GitemberUITool.showResult(e.getMessage(), Alert.AlertType.ERROR);
+            }
+        }
+    }
+
+
 
 
     //-------------------------------------------------------------------------------------------
@@ -704,14 +712,14 @@ public class GitRepositoryService {
      * @return list of changed files
      * @throws Exception
      */
-    public List<ScmItem> getChangedFiles(final String treeName, final String revisionCommitName) throws Exception {
+    /*public List<ScmItem> getChangedFiles(final String treeName, final String revisionCommitName) throws Exception {
         try (Git git = new Git(repository)) {
             final LogCommand cmd = git.log()
                     .add(repository.resolve(treeName))
                     .setRevFilter(new SingleRevisionFilter(revisionCommitName));
             return getScmItems(cmd);
         }
-    }
+    }*/
 
 
     /**
@@ -722,7 +730,7 @@ public class GitRepositoryService {
      * @throws GitAPIException
      * @throws IOException
      */
-    private List<ScmItem> getScmItems(LogCommand cmd) throws GitAPIException, IOException {
+    /*private List<ScmItem> getScmItems(LogCommand cmd) throws GitAPIException, IOException {
         ArrayList<ScmItem> scmItems = new ArrayList<>();
         final Iterable<RevCommit> revCommits = cmd.call();
         final RevCommit revCommit = revCommits.iterator().next();
@@ -730,7 +738,7 @@ public class GitRepositoryService {
                 getScmItems(revCommit, null)
         );
         return scmItems;
-    }
+    }*/
 
     /**
      * Get list of files in given revision.
@@ -800,10 +808,10 @@ public class GitRepositoryService {
      * @return PlotCommitList<PlotLane>
      * @throws Exception
      */
-    public PlotCommitList<PlotLane> getCommitsByTree(final String treeName) throws Exception {
+    /*public PlotCommitList<PlotLane> getCommitsByTree(final String treeName) throws Exception {
         final PlotCommitList<PlotLane> rez =  getCommitsByTree(treeName, false);
         return  rez;
-    }
+    }*/
 
     /**
      * Get revisions to visualize. Fr more detail look at
@@ -1328,68 +1336,7 @@ public class GitRepositoryService {
     }
 
 
-    /**
-     * Create stash
-     *
-     * @throws GEScmAPIException in case of error.
-     */
-    public void stash() throws GEScmAPIException {
-        try (Git git = new Git(repository)) {
-            git.stashCreate().call();
-        } catch (GitAPIException e) {
-            throw new GEScmAPIException(e.getMessage(), e.getCause());
-        }
-    }
 
-    /**
-     * Get stash list.
-     *
-     * @return list of stashed changes
-     */
-    public List<ScmRevisionInformation> getStashList() {
-        try (Git git = new Git(repository)) {
-            return git.stashList()
-                    .call()
-                    .stream()
-                    .map(revCommit -> adapt(revCommit, null))
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            log.log(Level.SEVERE, "Cannot get tags", e);
-        }
-        return Collections.emptyList();
-    }
-
-    /**
-     * Delete stash.
-     *
-     * @param stashRef stash reference id.
-     * @throws GEScmAPIException in case of errors.
-     */
-    public void deleteStash(int stashRef) throws GEScmAPIException {
-        try (Git git = new Git(repository)) {
-            git.stashDrop()
-                    .setStashRef(stashRef)
-                    .call();
-        } catch (GitAPIException e) {
-            throw new GEScmAPIException(e.getMessage(), e.getCause());
-        }
-    }
-
-    /**
-     * Apply stash.
-     *
-     * @param stashRef stash ref
-     * @throws GEScmAPIException in case of errors.
-     */
-    public void applyStash(String stashRef) throws GEScmAPIException {
-        try (Git git = new Git(repository)) {
-            git.stashApply()
-                    .setStashRef(stashRef)
-                    .call();
-        } catch (GitAPIException e) {
-            throw new GEScmAPIException(e.getMessage(), e.getCause());
-        }
-    }
 
 
     private void checkout(Repository clonedRepo, FetchResult result)
@@ -1578,21 +1525,79 @@ public class GitRepositoryService {
 
 
 
-    public void checkoutFile(final String fileName, Stage stage) {
 
-        try (Git git = new Git(repository)) {
-            try {
-                CheckoutCommand cmd = git.checkout().addPath(fileName);
-                if (stage != null) {
-                    cmd.setStage(adaptStage(stage));
+
+    public String saveFileDiff(String treeName, String oldRevision, String newRevision, String fileName) throws Exception {
+
+        final File temp = File.createTempFile(Const.TEMP_FILE_PREFIX, Const.DIFF_EXTENSION);
+        GitRepositoryService.deleteOnExit(temp);
+
+        AbstractTreeIterator oldTreeParser = prepareTreeParser(repository, oldRevision);
+        AbstractTreeIterator newTreeParser = prepareTreeParser(repository, newRevision);
+
+        try (Git git = new Git(repository); OutputStream outputStream = new FileOutputStream(temp)) {
+            List<DiffEntry> diff = git.diff().
+                    setOldTree(oldTreeParser).
+                    setNewTree(newTreeParser).
+                    setPathFilter(PathFilter.create(fileName)).
+                    call();
+            for (DiffEntry entry : diff) {
+                //System.out.println("Entry: " + entry + ", from: " + entry.getOldId() + ", to: " + entry.getNewId());
+                try (DiffFormatter formatter = new DiffFormatter(outputStream)) {
+                    formatter.setRepository(repository);
+                    formatter.format(entry);
                 }
-                cmd.call();
-            } catch (JGitInternalException | GitAPIException e) {
-                log.log(Level.WARNING, "Cannot checkout file " + fileName, e);
-                GitemberUITool.showResult(e.getMessage(), Alert.AlertType.ERROR);
             }
         }
 
+        return temp.getAbsolutePath();
+
+
+    }
+
+    /**
+     * Save given fileName at tree/revision into output stream.
+     *
+     * @param treeName     tree name
+     * @param revisionName revision name
+     * @param fileName     file name in repository
+     * @return absolute path to saved diff file
+     */
+    public String saveDiff(String treeName, String revisionName,
+                           String fileName) throws Exception {
+
+        final File temp = File.createTempFile(Const.TEMP_FILE_PREFIX, Const.DIFF_EXTENSION);
+        GitRepositoryService.deleteOnExit(temp);
+
+        try (Git git = new Git(repository);
+             RevWalk rw = new RevWalk(repository);
+             OutputStream outputStream = new FileOutputStream(temp)) {
+
+            final LogCommand cmd = git.log()
+                    .add(repository.resolve(treeName))
+                    .setRevFilter(new SingleRevisionFilter(revisionName))
+                    .addPath(fileName);
+
+            final Iterable<RevCommit> revCommits = cmd.call();
+            final RevCommit revCommit = revCommits.iterator().next();
+
+            if (revCommit != null) {
+                final DiffFormatter df = getDiffFormatter(fileName);
+                final List<DiffEntry> diffs = df.scan(
+                        revCommit.getParentCount() > 0 ? rw.parseCommit(revCommit.getParent(0).getId()).getTree() : null,
+                        revCommit.getTree());
+                final DiffEntry diffEntry = diffs.get(0);
+
+                try (DiffFormatter formatter = new DiffFormatter(outputStream)) {
+                    formatter.setRepository(repository);
+                    formatter.format(diffEntry);
+                }
+
+            }
+            rw.dispose();
+
+        }
+        return temp.getAbsolutePath();
 
     }
 

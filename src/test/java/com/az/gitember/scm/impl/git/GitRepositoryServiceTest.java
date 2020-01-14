@@ -211,12 +211,72 @@ public class GitRepositoryServiceTest {
         assertEquals("refs/tags/t1", lst.get(2).getShortName());
     }
 
+
     @Test
     public void getHead() throws Exception {
         commit();
         CommitInfo ci = gitRepositoryService.getHead();
         assertNotNull(ci);
         assertEquals("refs/heads/master", ci.getName());
+    }
+
+
+
+
+
+    @Test
+    public void stash() throws Exception {
+        commit();
+        Path readmePath = Paths.get(tmpGitProject, README_FILE);
+        List<ScmRevisionInformation> lst = gitRepositoryService.getStashList();
+        assertEquals(0, lst.size());
+
+        byte[] readmeBytesOriginal = Files.readAllBytes(readmePath);
+        Files.write(readmePath,
+                "\n readme changes 0".getBytes(), StandardOpenOption.APPEND);
+        byte[] readmeBytesChanged0 = Files.readAllBytes(readmePath);
+        assertNotEquals(readmeBytesOriginal.length, readmeBytesChanged0.length);
+        gitRepositoryService.stash();
+        byte[] readmeBytesStashed = Files.readAllBytes(readmePath);
+        assertEquals(readmeBytesOriginal.length, readmeBytesStashed.length);
+
+        Files.write(readmePath,
+                "\n readme changes 1".getBytes(), StandardOpenOption.APPEND);
+        byte[] readmeBytesChanged1 = Files.readAllBytes(readmePath);
+        assertNotEquals(readmeBytesOriginal.length, readmeBytesChanged1.length);
+        gitRepositoryService.stash();
+
+        lst = gitRepositoryService.getStashList();
+        assertEquals(2, lst.size());
+
+
+        gitRepositoryService.applyStash(lst.get(0).getRevisionFullName());
+        byte[] readmeBytesApplied = Files.readAllBytes(readmePath);
+        assertNotEquals(readmeBytesOriginal.length, readmeBytesApplied.length);
+
+        gitRepositoryService.deleteStash(0);
+        lst = gitRepositoryService.getStashList();
+        assertEquals(1, lst.size());
+
+    }
+
+
+    @Test
+    public void checkoutFile() throws Exception {
+        commit();
+        Path readmePath = Paths.get(tmpGitProject, README_FILE);
+
+        byte[] readmeBytesOriginal = Files.readAllBytes(readmePath);
+        Files.write(readmePath,
+                "\n readme changes 0".getBytes(), StandardOpenOption.APPEND);
+        byte[] readmeBytesChanged = Files.readAllBytes(readmePath);
+
+        assertNotEquals(readmeBytesOriginal.length, readmeBytesChanged.length);
+        gitRepositoryService.checkoutFile(README_FILE, null);
+
+        byte[] readmeBytesOriginalNew = Files.readAllBytes(readmePath);
+
+        assertEquals(readmeBytesOriginal.length, readmeBytesOriginalNew.length);
     }
 
 

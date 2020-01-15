@@ -928,8 +928,8 @@ public class GitemberServiceImpl {
         return gitRepositoryService.getHead();
     }
 
-    public String saveFile(String first, String second, String fileName) throws IOException {
-        return gitRepositoryService.saveFile(first, second, fileName);
+    public String saveFile(String revisionName, String fileName) throws IOException {
+        return gitRepositoryService.saveFile(revisionName, fileName);
     }
 
     public void removeFileFromCommitStage(String shortName) throws Exception {

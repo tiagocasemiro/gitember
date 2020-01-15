@@ -168,7 +168,7 @@ public class CommitViewController implements Initializable {
         try {
             final FileViewController fileViewController = new FileViewController();
             fileViewController.openFile(
-                    Context.getGitemberService().saveFile(treeName, revisionFullName, fileName),
+                    Context.getGitemberService().saveFile( revisionFullName, fileName),
                     fileName);
         } catch (Exception e) {
             GitemberUITool.showResult("Could not open file: " + e.getMessage(), Alert.AlertType.ERROR);
@@ -190,8 +190,8 @@ public class CommitViewController implements Initializable {
         final ScmItem scmItem = (ScmItem) changedFilesListView.getSelectionModel().getSelectedItem();
         final String fileName = scmItem.getAttribute().getName();
         final String parentREvision = scmRevisionInformation.getParents().get(0); //todo determinate parent right
-        final String oldFile = Context.getGitemberService().saveFile(treeName, parentREvision, fileName);
-        final String newFile = Context.getGitemberService().saveFile(treeName, scmRevisionInformation.getRevisionFullName(), fileName);
+        final String oldFile = Context.getGitemberService().saveFile( parentREvision, fileName);
+        final String newFile = Context.getGitemberService().saveFile( scmRevisionInformation.getRevisionFullName(), fileName);
         final String diffFile = Context.getGitemberService().saveDiff(treeName, scmRevisionInformation.getRevisionFullName(), fileName);
         final DiffViewController fileViewController = new DiffViewController();
         fileViewController.openFile(
@@ -210,7 +210,7 @@ public class CommitViewController implements Initializable {
         final ScmItem scmItem = (ScmItem) changedFilesListView.getSelectionModel().getSelectedItem();
         final String fileName = scmItem.getAttribute().getName();
         final String oldRevisionName = scmRevisionInformation.getRevisionFullName();
-        final String oldFile = Context.getGitemberService().saveFile(treeName, oldRevisionName, fileName);
+        final String oldFile = Context.getGitemberService().saveFile(oldRevisionName, fileName);
 
         final String newFile = "GitemberApp.getCurrentRepositoryPathWOGit()" + File.separator + fileName;
 
@@ -239,13 +239,13 @@ public class CommitViewController implements Initializable {
         final ScmItem scmItem = (ScmItem) changedFilesListView.getSelectionModel().getSelectedItem();
         final String fileName = scmItem.getAttribute().getName();
         final String oldRevisionName = scmRevisionInformation.getRevisionFullName();
-        final String oldFile = Context.getGitemberService().saveFile(treeName, oldRevisionName, fileName);
+        final String oldFile = Context.getGitemberService().saveFile( oldRevisionName, fileName);
 
         final ScmRevisionInformation lastCommit = Context.getGitemberService().getFileHistory(treeName, fileName, 1).get(0);
 
         final String newRevisionName = lastCommit.getRevisionFullName();
 
-        final String newFile = Context.getGitemberService().saveFile(treeName, newRevisionName, fileName);
+        final String newFile = Context.getGitemberService().saveFile( newRevisionName, fileName);
         final String diffFile = Context.getGitemberService().saveFileDiff(treeName, oldRevisionName, newRevisionName, fileName);
         final DiffViewController fileViewController = new DiffViewController();
         fileViewController.openFile(

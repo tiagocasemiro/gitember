@@ -45,7 +45,7 @@ public class GitRepositoryServiceTest {
         tmpGitProject = tmpGitProjectPath.toAbsolutePath().toString();
         GitRepositoryService.createRepository(tmpGitProject);
         gitRepositoryService = new GitRepositoryService(
-                Paths.get(tmpGitProject , ".git").toString()
+                Paths.get(tmpGitProject, ".git").toString()
         );
         System.out.println("Temp project folder is " + tmpGitProject);
 
@@ -86,7 +86,7 @@ public class GitRepositoryServiceTest {
     }
 
     @Test
-    public void removeFileFromCommitStage()  throws Exception {
+    public void removeFileFromCommitStage() throws Exception {
         DirCache dc = gitRepositoryService.addFileToCommitStage(README_FILE);
         assertEquals(1, dc.getEntryCount());
 
@@ -95,7 +95,7 @@ public class GitRepositoryServiceTest {
     }
 
     @Test
-    public void commit()  throws Exception {
+    public void commit() throws Exception {
         DirCache dc = gitRepositoryService.addFileToCommitStage(README_FILE);
         assertEquals(1, dc.getEntryCount());
         dc = gitRepositoryService.addFileToCommitStage(IGNORE_FILE);
@@ -106,7 +106,7 @@ public class GitRepositoryServiceTest {
     }
 
     @Test
-    public void getAllFiles()  throws Exception {
+    public void getAllFiles() throws Exception {
         assertEquals(0, gitRepositoryService.getAllFiles().size());
         commit();
         assertEquals(2, gitRepositoryService.getAllFiles().size());
@@ -130,7 +130,7 @@ public class GitRepositoryServiceTest {
                 Paths.get(FOLDER).toString()
         );
         RevCommit rc = gitRepositoryService.commit("Added new file to br1");
-        assertEquals("Added new file to br1",rc.getShortMessage());
+        assertEquals("Added new file to br1", rc.getShortMessage());
 
         Ref masterRef = gitRepositoryService.checkoutLocalBranch(FN_MASTER);
         assertEquals(2, gitRepositoryService.getAllFiles(FN_MASTER).size());
@@ -257,9 +257,6 @@ public class GitRepositoryServiceTest {
     }
 
 
-
-
-
     @Test
     public void stash() throws Exception {
         commit();
@@ -316,14 +313,28 @@ public class GitRepositoryServiceTest {
     }
 
 
+    @Test
+    public void saveFile() throws Exception {
+        commit();
+        Files.write(Paths.get(tmpGitProject, README_FILE),
+                "\n HAL9000".getBytes(), StandardOpenOption.APPEND);
+        gitRepositoryService.addFileToCommitStage(README_FILE);
+        RevCommit rc = gitRepositoryService.commit("HAL9000");
+        Files.write(Paths.get(tmpGitProject, README_FILE),
+                "\n Bender".getBytes(), StandardOpenOption.APPEND);
+        gitRepositoryService.addFileToCommitStage(README_FILE);
+        RevCommit rcWithBender = gitRepositoryService.commit("Bender");
 
+        String absPath = gitRepositoryService.saveFile(rc.name(), README_FILE);
+        String str = new String(Files.readAllBytes(Paths.get(absPath)));
+        assertTrue(str.contains("HAL9000"));
+        assertTrue(!str.contains("Bender"));
 
-
-
-
-
-
-
+        absPath = gitRepositoryService.saveFile(rcWithBender.name(), README_FILE);
+        str = new String(Files.readAllBytes(Paths.get(absPath)));
+        assertTrue(str.contains("HAL9000"));
+        assertTrue(str.contains("Bender"));
+    }
 
 
 }

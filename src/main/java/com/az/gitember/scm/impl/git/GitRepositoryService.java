@@ -532,15 +532,13 @@ public class GitRepositoryService {
 
 
     /**
-     * Save given fileName at tree/revision into output stream.
+     * Save given fileName at given revision into given file name.
      *
-     * @param treeName     tree name
-     * @param revisionName revision name
+     * @param revisionName revision name sha
      * @param fileName     file name
      * @return absolute path to saved file
      */
-    public String saveFile(String treeName, String revisionName,
-                           String fileName) throws IOException {
+    public String saveFile(String revisionName, String fileName) throws IOException {
 
         final ObjectId lastCommitId = repository.resolve(revisionName);
         final String fileNameExtension = GitemberUtil.getExtension(fileName);
@@ -564,18 +562,13 @@ public class GitRepositoryService {
                 if (!treeWalk.next()) {
                     throw new IllegalStateException("Did not find expected file " + fileName);
                 }
-
-
                 ObjectId objectId = treeWalk.getObjectId(0);
                 ObjectLoader loader = repository.open(objectId);
-
                 // and then one can the loader to read the file
                 loader.copyTo(outputStream);
             }
-
             revWalk.dispose();
         }
-
         return temp.getAbsolutePath();
     }
 
@@ -593,7 +586,7 @@ public class GitRepositoryService {
     }
 
 
-    public ScmBranch getScmBranchByName(String name) {
+    /*public ScmBranch getScmBranchByName(String name) {
         try (Git git = new Git(repository)) {
             List<Ref> branchLst = git.branchList().setListMode(ListBranchCommand.ListMode.ALL).call();
             Ref r = branchLst.stream()
@@ -614,7 +607,7 @@ public class GitRepositoryService {
             log.log(Level.SEVERE, "Cannot get list of branches", e);
         }
         return null;
-    }
+    }*/
 
 
 
@@ -671,10 +664,20 @@ public class GitRepositoryService {
         }
     }
 
+    private Map<String, Integer> countLines(BlameResult blame) {
+        Map<String, Integer> rez = new HashMap<>();
+        if (blame != null && blame.getResultContents() != null) {
+            int lines = blame.getResultContents().size();
+            for (int i = 0; i < lines; i++) {
+                String author = blame.getSourceAuthor(i).getName();
+                Integer cnt = rez.getOrDefault(author, 0) + 1;
+                rez.put(author, cnt);
+            }
+        }
+        return rez;
+    }
 
-
-
-
+    //---------------------------------------------------------
 
 
 
@@ -691,7 +694,8 @@ public class GitRepositoryService {
     }
 
 
-    public RemoteOperationValue blame(final Set<String> files, final ProgressMonitor progressMonitor) throws Exception {
+    public RemoteOperationValue blame(final Set<String> files,
+                                      final ProgressMonitor progressMonitor) throws Exception {
 
         final Ref head = repository.exactRef(Constants.HEAD);
         final RevWalk walk = new RevWalk(repository);
@@ -761,18 +765,7 @@ public class GitRepositoryService {
 
     }
 
-    private Map<String, Integer> countLines(BlameResult blame) {
-        Map<String, Integer> rez = new HashMap<>();
-        if (blame != null && blame.getResultContents() != null) {
-            int lines = blame.getResultContents().size();
-            for (int i = 0; i < lines; i++) {
-                String author = blame.getSourceAuthor(i).getName();
-                Integer cnt = rez.getOrDefault(author, 0) + 1;
-                rez.put(author, cnt);
-            }
-        }
-        return rez;
-    }
+
 
 
 

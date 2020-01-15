@@ -130,8 +130,8 @@ public class HistoryViewController implements Initializable {
             final String newRevisionName = newRevision.getRevisionFullName();
 
             //todo copy past from commit controller # openDiffWithLatestVersionMenuItemClickHandler
-            final String oldFile = Context.getGitemberService().saveFile(treeName, oldRevisionName, fileName);
-            final String newFile = Context.getGitemberService().saveFile(treeName, newRevisionName, fileName);
+            final String oldFile = Context.getGitemberService().saveFile( oldRevisionName, fileName);
+            final String newFile = Context.getGitemberService().saveFile( newRevisionName, fileName);
             final String diffFile = Context.getGitemberService().saveFileDiff(treeName, oldRevisionName , newRevisionName, fileName);
             final DiffViewController fileViewController = new DiffViewController();
             fileViewController.openFile(
@@ -150,7 +150,7 @@ public class HistoryViewController implements Initializable {
         try {
             final FileViewController fileViewController = new FileViewController();
             fileViewController.openFile(
-                    Context.getGitemberService().saveFile(treeName, revisionFullName, fileName),
+                    Context.getGitemberService().saveFile(revisionFullName, fileName),
                     fileName);
         } catch (Exception e) {       //todo error dialog
             e.printStackTrace();

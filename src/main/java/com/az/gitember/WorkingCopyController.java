@@ -602,8 +602,7 @@ public class WorkingCopyController implements Initializable {
             try {
                 final String fileName = item.getShortName();
                 final CommitInfo head = Context.getGitemberService().getHead();
-                final String oldFile = Context.getGitemberService().saveFile(
-                        head.getName(), head.getSha(), fileName);
+                final String oldFile = Context.getGitemberService().saveFile(head.getSha(), fileName);
                 final String newFile = "GitemberApp.getCurrentRepositoryPathWOGit()" + File.separator + fileName;
 
                 List<String> newFileLines = Files.readAllLines(Paths.get(newFile));

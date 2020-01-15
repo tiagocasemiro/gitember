@@ -1,15 +1,15 @@
 package com.az.gitember.service;
 
-import com.az.gitember.misc.RemoteOperationValue;
+import com.az.gitember.misc.Result;
 import com.az.gitember.scm.impl.git.DefaultProgressMonitor;
 import javafx.concurrent.Task;
 import org.eclipse.jgit.lib.ProgressMonitor;
 
 import java.util.function.Supplier;
 
-public class RemoteOperationValueTask   extends Task<RemoteOperationValue>  {
+public class RemoteOperationValueTask   extends Task<Result>  {
 
-    private  Supplier<RemoteOperationValue> supplier;
+    private  Supplier<Result> supplier;
     private  GitemberServiceImpl service;
 
     private final ProgressMonitor progressMonitor = new DefaultProgressMonitor((t, d) -> {
@@ -17,7 +17,7 @@ public class RemoteOperationValueTask   extends Task<RemoteOperationValue>  {
         updateProgress(d, 1.0);
     });
 
-    public RemoteOperationValueTask(final GitemberServiceImpl service, Supplier<RemoteOperationValue> supplier) {
+    public RemoteOperationValueTask(final GitemberServiceImpl service, Supplier<Result> supplier) {
         this.service = service;
         this.supplier = supplier;
     }
@@ -29,7 +29,7 @@ public class RemoteOperationValueTask   extends Task<RemoteOperationValue>  {
     public RemoteOperationValueTask() {
     }
 
-    public Supplier<RemoteOperationValue> getSupplier() {
+    public Supplier<Result> getSupplier() {
         return supplier;
     }
 
@@ -37,7 +37,7 @@ public class RemoteOperationValueTask   extends Task<RemoteOperationValue>  {
         return progressMonitor;
     }
 
-    public void setSupplier(Supplier<RemoteOperationValue> supplier) {
+    public void setSupplier(Supplier<Result> supplier) {
         this.supplier = supplier;
     }
 
@@ -46,7 +46,7 @@ public class RemoteOperationValueTask   extends Task<RemoteOperationValue>  {
     }
 
     @Override
-    protected RemoteOperationValue call() throws Exception {
+    protected Result call() throws Exception {
         return service.remoteRepositoryOperation(
                 supplier
         );

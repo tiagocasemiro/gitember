@@ -50,11 +50,11 @@ public class GitemberUITool {
     }
 
     public static Optional<ButtonType>  showResult(final String text, final Alert.AlertType alertType) {
-        return showResult("Result", text, alertType);
+        return showResult("Code", text, alertType);
     }
 
     public static void showResult(final String text) {
-        showResult("Result", text, Alert.AlertType.INFORMATION);
+        showResult("Code", text, Alert.AlertType.INFORMATION);
     }
 
 }

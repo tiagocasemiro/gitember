@@ -308,8 +308,8 @@ public class GitRepositoryService {
      * @param progressMonitor optional progress monitor
      * @throws GEScmAPIException
      */
-    public RemoteOperationValue rebase(final String upstream,
-                                       final ProgressMonitor progressMonitor) {
+    public Result rebase(final String upstream,
+                         final ProgressMonitor progressMonitor) {
         throw new RuntimeException("TODO rething and reimplement");
         /*try (Git git = new Git(repository)) {
 
@@ -322,7 +322,7 @@ public class GitRepositoryService {
             String rezExplanation = getRebaseResultExplanation(rez);
             if (rez.getStatus().isSuccessful()) {
                 log.log(Level.INFO, "Rebase result " + rezExplanation);
-                return new RemoteOperationValue(RemoteOperationValue.Result.OK, rezExplanation);
+                return new Result(Result.Code.OK, rezExplanation);
 
             } else {
                 log.log(Level.INFO, "Rebase result was not successful, so revert changes " + rezExplanation);
@@ -333,28 +333,15 @@ public class GitRepositoryService {
                         .setOperation(RebaseCommand.Operation.ABORT)
                         .call();
                 rezExplanation = getRebaseResultExplanation(rez);
-                return new RemoteOperationValue(RemoteOperationValue.Result.ERROR, rezExplanation);
+                return new Result(Result.Code.ERROR, rezExplanation);
             }
         } catch (GitAPIException e) {
             log.log(Level.WARNING, "Rebase error", e);
-            return new RemoteOperationValue(RemoteOperationValue.Result.ERROR, e.getMessage());
+            return new Result(Result.Code.ERROR, e.getMessage());
         }*/
     }
 
-    /**
-     * Get list of local branches.
-     *
-     * @return list of local branches.
-     */
-    public List<ScmBranch> getLocalBranches() {
-        try {
-            return getBranches(ListBranchCommand.ListMode.ALL, Constants.R_HEADS,
-                    ScmBranch.BranchType.LOCAL);
-        } catch (Exception e) {
-            log.log(Level.SEVERE, "Cannot get local branches", e);
-        }
-        return Collections.emptyList();
-    }
+
 
 
     /**
@@ -573,114 +560,10 @@ public class GitRepositoryService {
     }
 
 
-    //-------------------------------------------------------------------------------------------
-
-
     /**
-     * Get repository. TOTO Incorrect, because for settings. But ok for now.
-     * todo
-     * @return
+     * Get list of remove branches.
+     * @return list
      */
-    public Repository getRepository() {
-        return repository;
-    }
-
-
-    /*public ScmBranch getScmBranchByName(String name) {
-        try (Git git = new Git(repository)) {
-            List<Ref> branchLst = git.branchList().setListMode(ListBranchCommand.ListMode.ALL).call();
-            Ref r = branchLst.stream()
-                    .filter(ref -> ref.getName().equals(name))
-                    .findFirst()
-                    .get();
-            if (r != null) {
-                ScmBranch rez = new ScmBranch(
-                        r.getName().substring(Constants.R_HEADS.length()),
-                        r.getName(),
-                        ScmBranch.BranchType.LOCAL,
-                        r.getObjectId().getName()
-                );
-                checkIsTrackingRemoteBranch(git.getRepository().getConfig(), rez);
-                return rez;
-            }
-        } catch (GitAPIException e) {
-            log.log(Level.SEVERE, "Cannot get list of branches", e);
-        }
-        return null;
-    }*/
-
-
-
-    //--------------------------------------------------------------------------------------------------------
-
-    private List<ScmBranch> getBranches(final ListBranchCommand.ListMode listMode,
-                                        final String prefix,
-                                        final ScmBranch.BranchType branchType) throws Exception {
-
-        try (Git git = new Git(repository)) {
-            CommitInfo head = this.getHead();
-
-            List<Ref> branchLst = git.branchList().setListMode(listMode).call();
-
-            List<ScmBranch> rez = branchLst
-                    .stream()
-                    .filter(r -> r.getName().startsWith(prefix) || ("HEAD".equals(r.getName()) && Constants.R_HEADS.equals(prefix)))
-                    .map(r -> new ScmBranch(
-                            "HEAD".equals(r.getName()) ? r.getName() : r.getName().substring(prefix.length()),
-                            r.getName(),
-                            branchType,
-                            r.getObjectId().getName()
-
-                    ))
-                    .map(i -> {
-                        i.setHead(i.getFullName().equals(head.getName()));
-                        return i;
-                    })
-                    .sorted((o1, o2) -> o1.getShortName().compareTo(o2.getShortName()))
-                    .collect(Collectors.toList());
-
-
-            // Just check is local branch has remote part
-            if (Constants.R_HEADS.equals(prefix)) {
-                Config cfg = repository.getConfig();
-                for (ScmBranch item : rez) {
-                    checkIsTrackingRemoteBranch(cfg, item);
-                }
-
-            }
-            return rez;
-        }
-    }
-
-    private void checkIsTrackingRemoteBranch(Config cfg, ScmBranch item) {
-        String remote = cfg.getString("branch", item.getShortName(), ConfigConstants.CONFIG_KEY_REMOTE);
-        if (remote != null) {
-            String mergeRef = cfg.getString("branch", item.getShortName(), "merge");
-            String shortRemoteName = mergeRef.substring(Constants.R_HEADS.length());
-            log.log(Level.INFO, "Local branch " + item.getFullName()
-                    + " is set to track remote " + mergeRef
-                    + "(" + shortRemoteName + ")");
-            item.setRemoteName(shortRemoteName);
-        }
-    }
-
-    private Map<String, Integer> countLines(BlameResult blame) {
-        Map<String, Integer> rez = new HashMap<>();
-        if (blame != null && blame.getResultContents() != null) {
-            int lines = blame.getResultContents().size();
-            for (int i = 0; i < lines; i++) {
-                String author = blame.getSourceAuthor(i).getName();
-                Integer cnt = rez.getOrDefault(author, 0) + 1;
-                rez.put(author, cnt);
-            }
-        }
-        return rez;
-    }
-
-    //---------------------------------------------------------
-
-
-
     public List<ScmBranch> getRemoteBranches() {
         try {
             return getBranches(
@@ -693,9 +576,70 @@ public class GitRepositoryService {
         return Collections.emptyList();
     }
 
+    /**
+     * Get list of local branches.
+     *
+     * @return list of local branches.
+     */
+    public List<ScmBranch> getLocalBranches() {
+        try {
+            return getBranches(ListBranchCommand.ListMode.ALL, Constants.R_HEADS,
+                    ScmBranch.BranchType.LOCAL);
+        } catch (Exception e) {
+            log.log(Level.SEVERE, "Cannot get local branches", e);
+        }
+        return Collections.emptyList();
+    }
 
-    public RemoteOperationValue blame(final Set<String> files,
-                                      final ProgressMonitor progressMonitor) throws Exception {
+
+    public static void deleteOnExit(File file) {
+        tempFiles.add(file);
+    }
+
+    public static void cleanUpTempFiles() {
+        tempFiles.forEach( f -> {  if(f.exists()) f.delete();  } );
+    }
+
+
+    /**
+     *
+     * @param defaultProgressMonitor optional
+     * @return
+     */
+    public Result compressDatabase(ProgressMonitor defaultProgressMonitor) {
+        try (Git git = new Git(repository)) {
+            try {
+                git.gc().setProgressMonitor(defaultProgressMonitor).call();
+                return new Result("Garbage was removed");
+            } catch (GitAPIException e) {
+
+                log.log(Level.SEVERE, "Cannot clean up db", e);
+                return new Result(Result.Code.ERROR, "Error during cleanup. " + e.getMessage());
+            }
+        }
+    }
+
+    public Config getRepoConfig() {
+        return repository.getConfig();
+    }
+
+    public String getRepoFolder() {
+        return repository.getDirectory().getAbsolutePath();
+    }
+
+
+    //-------------------------------------------------------------------------------------------
+
+
+    /**
+     *
+     * @param files
+     * @param progressMonitor
+     * @return
+     * @throws Exception
+     */
+    public Result blame(final Set<String> files,
+                        final ProgressMonitor progressMonitor) throws Exception {
 
         final Ref head = repository.exactRef(Constants.HEAD);
         final RevWalk walk = new RevWalk(repository);
@@ -761,16 +705,9 @@ public class GitRepositoryService {
 
         progressMonitor.endTask();
 
-        return new RemoteOperationValue(RemoteOperationValue.Result.OK, "Ok", new ScmStat(total, logMap));
+        return new Result(Result.Code.OK, "Ok", new ScmStat(total, logMap));
 
     }
-
-
-
-
-
-
-
 
 
     /**
@@ -874,22 +811,7 @@ public class GitRepositoryService {
     }
 
 
-    /**
-     * Get diff formatter.
-     *
-     * @param filePath optional filter for diff
-     * @return diff formater
-     */
-    private DiffFormatter getDiffFormatter(String filePath) {
-        final DiffFormatter df = new DiffFormatter(DisabledOutputStream.INSTANCE);
-        df.setRepository(repository);
-        df.setDiffComparator(RawTextComparator.DEFAULT);
-        df.setDetectRenames(true);
-        if (filePath != null) {
-            df.setPathFilter(PathFilter.create(filePath));
-        }
-        return df;
-    }
+
 
     private ScmItem adaptDiffEntry(DiffEntry diff) {
         ScmItemAttribute attr = new ScmItemAttribute();
@@ -1114,10 +1036,10 @@ public class GitRepositoryService {
      * @param userName      optional user name
      * @param password      optional password
      */
-    public RemoteOperationValue cloneRepository(final String reporitoryUrl, final String folder,
-                                                final String userName, final String password,
-                                                final String pathToKey,
-                                                final ProgressMonitor progressMonitor) {
+    public Result cloneRepository(final String reporitoryUrl, final String folder,
+                                  final String userName, final String password,
+                                  final String pathToKey,
+                                  final ProgressMonitor progressMonitor) {
 
         final CloneCommand cmd = Git.cloneRepository()
                 .setURI(reporitoryUrl)
@@ -1143,7 +1065,7 @@ public class GitRepositoryService {
         try {
             try (Git result = cmd.call()) {
                 Object rez = result.getRepository().getDirectory().getAbsolutePath();
-                return new RemoteOperationValue(rez);
+                return new Result(rez);
 
             }
         } catch (TransportException te) {
@@ -1207,30 +1129,30 @@ public class GitRepositoryService {
         };
     }
 
-    private RemoteOperationValue processError(Exception e) {
+    private Result processError(Exception e) {
         if (e instanceof TransportException) {
             if (e.getMessage().contains("Authentication is required")) {
                 log.log(Level.INFO, e.getMessage());
-                return new RemoteOperationValue(RemoteOperationValue.Result.AUTH_REQUIRED, e.getMessage());
+                return new Result(Result.Code.AUTH_REQUIRED, e.getMessage());
             } else if (e.getMessage().contains("USERAUTH fail") || e.getMessage().contains("Auth fail")) {
                 log.log(Level.INFO, e.getMessage());
-                return new RemoteOperationValue(RemoteOperationValue.Result.GIT_AUTH_REQUIRED, e.getMessage());
+                return new Result(Result.Code.GIT_AUTH_REQUIRED, e.getMessage());
             } else if (e.getMessage().contains("not authorized")) {
                 log.log(Level.INFO, e.getMessage());
-                return new RemoteOperationValue(RemoteOperationValue.Result.NOT_AUTHORIZED, e.getMessage());
+                return new Result(Result.Code.NOT_AUTHORIZED, e.getMessage());
             } else if (e.getMessage().contains("remote end: unpack-objects")) {
                 log.log(Level.WARNING, "Unexpected transport issue. Check disk space on remote repository", e);
-                return new RemoteOperationValue(RemoteOperationValue.Result.ERROR, e.getMessage());
+                return new Result(Result.Code.ERROR, e.getMessage());
             } else {
                 log.log(Level.WARNING, "Unexpected transport issue", e);
-                return new RemoteOperationValue(RemoteOperationValue.Result.ERROR, e.getMessage());
+                return new Result(Result.Code.ERROR, e.getMessage());
             }
         } else if (e instanceof GitAPIException) {
             log.log(Level.WARNING, "GitAPIException", e);
-            return new RemoteOperationValue(RemoteOperationValue.Result.ERROR, e.getMessage());
+            return new Result(Result.Code.ERROR, e.getMessage());
         }
         log.log(Level.WARNING, "Unexpected", e);
-        return new RemoteOperationValue(RemoteOperationValue.Result.ERROR, e.getMessage());
+        return new Result(Result.Code.ERROR, e.getMessage());
 
     }
 
@@ -1245,9 +1167,9 @@ public class GitRepositoryService {
      * @param progressMonitor   optional progress
      * @return result of operation
      */
-    public RemoteOperationValue remoteRepositoryFetch(final GitemberProjectSettings repoInfo,
-                                                      final String shortRemoteBranch,
-                                                      final ProgressMonitor progressMonitor) {
+    public Result remoteRepositoryFetch(final GitemberProjectSettings repoInfo,
+                                        final String shortRemoteBranch,
+                                        final ProgressMonitor progressMonitor) {
         log.log(Level.INFO,
                 MessageFormat.format("Fetch {0} null means all, for user {1}", shortRemoteBranch, repoInfo.getUserName()));
 
@@ -1265,13 +1187,13 @@ public class GitRepositoryService {
 
             FetchResult fetchResult = fetchCommand.call();
             if (fetchResult.getTrackingRefUpdates().isEmpty()) {
-                return new RemoteOperationValue("Nothing changed");
+                return new Result("Nothing changed");
             }
-            return new RemoteOperationValue(
+            return new Result(
                     MessageFormat.format("Found {0} refs to process.", fetchResult.getTrackingRefUpdates().size()));
         } catch (CheckoutConflictException conflictException) {
-            return new RemoteOperationValue(
-                    RemoteOperationValue.Result.ERROR, "Fetch conflict error" + conflictException.getMessage());
+            return new Result(
+                    Result.Code.ERROR, "Fetch conflict error" + conflictException.getMessage());
         } catch (GitAPIException e) {
             return processError(e);
         }
@@ -1285,10 +1207,10 @@ public class GitRepositoryService {
      * @return result of opertion
      * @throws Exception
      */
-    public RemoteOperationValue remoteRepositoryPull(final String shortRemoteBranch,
-                                                     final GitemberProjectSettings repoInfo,
-                                                     final ProgressMonitor progressMonitor,
-                                                     final boolean processExeption ) {
+    public Result remoteRepositoryPull(final String shortRemoteBranch,
+                                       final GitemberProjectSettings repoInfo,
+                                       final ProgressMonitor progressMonitor,
+                                       final boolean processExeption ) {
         log.log(Level.INFO,  MessageFormat.format("Pull {0} ", shortRemoteBranch));
 
         try (Git git = new Git(repository)) {
@@ -1302,25 +1224,25 @@ public class GitRepositoryService {
 
             PullResult pullRez = pullCommand.call();
             if (pullRez.isSuccessful()) {
-                return new RemoteOperationValue(pullRez.getMergeResult().getMergeStatus().toString());
+                return new Result(pullRez.getMergeResult().getMergeStatus().toString());
             }
-            return new RemoteOperationValue(RemoteOperationValue.Result.ERROR, pullRez.toString());
+            return new Result(Result.Code.ERROR, pullRez.toString());
         } catch (CheckoutConflictException conflictException) {
             conflictException.printStackTrace();
-            return new RemoteOperationValue("Pull conflict error" + conflictException.getMessage());
+            return new Result("Pull conflict error" + conflictException.getMessage());
 
         } catch (Exception e) {
             if (processExeption) {
                 return processError(e);
             } else {
-                return new RemoteOperationValue(RemoteOperationValue.Result.CANCEL, "User cancel operation .");
+                return new Result(Result.Code.CANCEL, "User cancel operation .");
             }
         }
     }
 
-    private RemoteOperationValue fetchRepository(final String reporitoryUrl, final String folder,
-                                                 final String userName, final String password,
-                                                 final ProgressMonitor progressMonitor) {
+    private Result fetchRepository(final String reporitoryUrl, final String folder,
+                                   final String userName, final String password,
+                                   final ProgressMonitor progressMonitor) {
         try (Git git = Git.open(new File(folder))) {
             final StoredConfig config = git.getRepository().getConfig();
             config.setString(ConfigConstants.CONFIG_KEY_REMOTE, Constants.DEFAULT_REMOTE_NAME, "url", reporitoryUrl);
@@ -1346,7 +1268,7 @@ public class GitRepositoryService {
             FetchResult fetchResult = fetchCommand.call();
             checkout(git.getRepository(), fetchResult);
 
-            return new RemoteOperationValue(git.getRepository().getDirectory().getAbsolutePath());
+            return new Result(git.getRepository().getDirectory().getAbsolutePath());
         } catch (Exception e) {
             return processError(e);
         }
@@ -1477,9 +1399,9 @@ public class GitRepositoryService {
         }
     }
 
-    public RemoteOperationValue remoteRepositoryPush(GitemberProjectSettings repoInfo,
-                                                     RefSpec refSpec,
-                                                     ProgressMonitor progressMonitor
+    public Result remoteRepositoryPush(GitemberProjectSettings repoInfo,
+                                       RefSpec refSpec,
+                                       ProgressMonitor progressMonitor
                                                       ) {
         try (Git git = new Git(repository)) {
 
@@ -1519,7 +1441,7 @@ public class GitRepositoryService {
                                         + " updates: " + pushResult.getRemoteUpdates());
                     }
             );
-            return new RemoteOperationValue(stringBuilder.toString());
+            return new Result(stringBuilder.toString());
         } catch (TransportException te) {
             if (te.getCause() != null && te.getCause().getCause() != null
                     && te.getCause().getCause().getClass().equals(SSLHandshakeException.class)) {
@@ -1584,7 +1506,7 @@ public class GitRepositoryService {
                            String fileName) throws Exception {
 
         final File temp = File.createTempFile(Const.TEMP_FILE_PREFIX, Const.DIFF_EXTENSION);
-        GitRepositoryService.deleteOnExit(temp);
+        deleteOnExit(temp);
 
         try (Git git = new Git(repository);
              RevWalk rw = new RevWalk(repository);
@@ -1618,40 +1540,10 @@ public class GitRepositoryService {
 
     }
 
-    public RemoteOperationValue compressDatabase(ProgressMonitor defaultProgressMonitor) {
-
-        try (Git git = new Git(repository)) {
-            try {
-                git.gc().setProgressMonitor(defaultProgressMonitor).call();
-                return new RemoteOperationValue("Garbage was removed");
-            } catch (GitAPIException e) {
-
-                log.log(Level.SEVERE, "Cannot clean up db", e);
-                return new RemoteOperationValue(RemoteOperationValue.Result.ERROR, "Error during cleanup. " + e.getMessage());
-            }
-        }
-
-    }
 
 
-    public static void deleteOnExit(File file) {
-        tempFiles.add(file);
-        log.log(Level.FINE, "File " + file.getAbsolutePath() + " will be deleted on exit");
-    }
 
-    public static void cleanUpTempFiles() {
-        for (File file : tempFiles) {
-            if (file.exists()) {
-                if (file.delete()) {
-                    log.log(Level.FINE, "File " + file.getAbsolutePath() + " was deleted");
-                } else {
-                    log.log(Level.FINE, "File " + file.getAbsolutePath() + " was not deleted");
-                }
-            }
-        }
-    }
-
-
+    //------------------------ privates --------------------------
 
     private void configureTransportCommand(TransportCommand transportCommand, final GitemberProjectSettings repoInfo) {
 
@@ -1688,5 +1580,114 @@ public class GitRepositoryService {
         }
         return CheckoutCommand.Stage.BASE;
     }
+
+
+    private List<ScmBranch> getBranches(final ListBranchCommand.ListMode listMode,
+                                        final String prefix,
+                                        final ScmBranch.BranchType branchType) throws Exception {
+
+        try (Git git = new Git(repository)) {
+            CommitInfo head = this.getHead();
+
+            List<Ref> branchLst = git.branchList().setListMode(listMode).call();
+
+            List<ScmBranch> rez = branchLst
+                    .stream()
+                    .filter(r -> r.getName().startsWith(prefix) || ("HEAD".equals(r.getName()) && Constants.R_HEADS.equals(prefix)))
+                    .map(r -> new ScmBranch(
+                            "HEAD".equals(r.getName()) ? r.getName() : r.getName().substring(prefix.length()),
+                            r.getName(),
+                            branchType,
+                            r.getObjectId().getName()
+
+                    ))
+                    .map(i -> {
+                        i.setHead(i.getFullName().equals(head.getName()));
+                        return i;
+                    })
+                    .sorted((o1, o2) -> o1.getShortName().compareTo(o2.getShortName()))
+                    .collect(Collectors.toList());
+
+
+            // Just check is local branch has remote part
+            if (Constants.R_HEADS.equals(prefix)) {
+                Config cfg = repository.getConfig();
+                for (ScmBranch item : rez) {
+                    checkIsTrackingRemoteBranch(cfg, item);
+                }
+
+            }
+            return rez;
+        }
+    }
+
+    private void checkIsTrackingRemoteBranch(Config cfg, ScmBranch item) {
+        String remote = cfg.getString("branch", item.getShortName(), ConfigConstants.CONFIG_KEY_REMOTE);
+        if (remote != null) {
+            String mergeRef = cfg.getString("branch", item.getShortName(), "merge");
+            String shortRemoteName = mergeRef.substring(Constants.R_HEADS.length());
+            log.log(Level.INFO, "Local branch " + item.getFullName()
+                    + " is set to track remote " + mergeRef
+                    + "(" + shortRemoteName + ")");
+            item.setRemoteName(shortRemoteName);
+        }
+    }
+
+    private Map<String, Integer> countLines(BlameResult blame) {
+        Map<String, Integer> rez = new HashMap<>();
+        if (blame != null && blame.getResultContents() != null) {
+            int lines = blame.getResultContents().size();
+            for (int i = 0; i < lines; i++) {
+                String author = blame.getSourceAuthor(i).getName();
+                Integer cnt = rez.getOrDefault(author, 0) + 1;
+                rez.put(author, cnt);
+            }
+        }
+        return rez;
+    }
+
+    /**
+     * Get diff formatter.
+     *
+     * @param filePath optional filter for diff
+     * @return diff formater
+     */
+    private DiffFormatter getDiffFormatter(String filePath) {
+        final DiffFormatter df = new DiffFormatter(DisabledOutputStream.INSTANCE);
+        df.setRepository(repository);
+        df.setDiffComparator(RawTextComparator.DEFAULT);
+        df.setDetectRenames(true);
+        if (filePath != null) {
+            df.setPathFilter(PathFilter.create(filePath));
+        }
+        return df;
+    }
+
+    //--------------------------- trash --------------------------
+
+
+
+    /*public ScmBranch getScmBranchByName(String name) {
+        try (Git git = new Git(repository)) {
+            List<Ref> branchLst = git.branchList().setListMode(ListBranchCommand.ListMode.ALL).call();
+            Ref r = branchLst.stream()
+                    .filter(ref -> ref.getName().equals(name))
+                    .findFirst()
+                    .get();
+            if (r != null) {
+                ScmBranch rez = new ScmBranch(
+                        r.getName().substring(Constants.R_HEADS.length()),
+                        r.getName(),
+                        ScmBranch.BranchType.LOCAL,
+                        r.getObjectId().getName()
+                );
+                checkIsTrackingRemoteBranch(git.getRepository().getConfig(), rez);
+                return rez;
+            }
+        } catch (GitAPIException e) {
+            log.log(Level.SEVERE, "Cannot get list of branches", e);
+        }
+        return null;
+    }*/
 
 }

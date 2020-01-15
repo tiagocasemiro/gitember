@@ -228,9 +228,9 @@ public class GitemberServiceImpl {
     public void rebase(final String fullName) {
 
 
-        Task<RemoteOperationValue> longTask = new Task<RemoteOperationValue>() {
+        Task<Result> longTask = new Task<Result>() {
             @Override
-            protected RemoteOperationValue call()  {
+            protected Result call()  {
                 return remoteRepositoryOperation(
                         () -> gitRepositoryService.rebase(
                                 fullName,
@@ -333,17 +333,17 @@ public class GitemberServiceImpl {
 
 
     public void deleteRemoteBranch(ScmBranch scmBranch,
-                                   Consumer<RemoteOperationValue> operationRezConsumer,
-                                   Consumer<RemoteOperationValue> operationErrConsumer) {
+                                   Consumer<Result> operationRezConsumer,
+                                   Consumer<Result> operationErrConsumer) {
 
 
         Optional<ButtonType> dialogResult = getDeleteBranchConfirmDialogValue(scmBranch);
         if (dialogResult.isPresent() && dialogResult.get() == ButtonType.OK) {
             String nameOnRemoteSide = Constants.R_HEADS + scmBranch.getShortName();
             RefSpec refSpec = new RefSpec().setSource(null).setDestination(nameOnRemoteSide);
-            Task<RemoteOperationValue> longTask = new Task<RemoteOperationValue>() {
+            Task<Result> longTask = new Task<Result>() {
                 @Override
-                protected RemoteOperationValue call()  {
+                protected Result call()  {
                     return remoteRepositoryOperation(
                             () -> gitRepositoryService.remoteRepositoryPush(
                                     repositoryLoginInfo, refSpec,
@@ -433,9 +433,9 @@ public class GitemberServiceImpl {
 
                 RefSpec refSpec = new RefSpec(":refs/tags/" + tag);
 
-                Task<RemoteOperationValue> longTask = new Task<RemoteOperationValue>() {
+                Task<Result> longTask = new Task<Result>() {
                     @Override
-                    protected RemoteOperationValue call() {
+                    protected Result call() {
                         return remoteRepositoryOperation(
                                 () -> gitRepositoryService.remoteRepositoryPush(
                                         repositoryLoginInfo,  refSpec,
@@ -461,14 +461,14 @@ public class GitemberServiceImpl {
 
         gitRepositoryService.trackRemote(repositoryLoginInfo, localBranchName, remoteBranchName);
 
-        Task<RemoteOperationValue> longTask = new Task<RemoteOperationValue>() {
+        Task<Result> longTask = new Task<Result>() {
 
             private RefSpec refSpec = new RefSpec(localBranchName + ":" + remoteBranchName);
 
             @Override
-            protected RemoteOperationValue call()  {
+            protected Result call()  {
                 //remoteRepositoryPull
-                final RemoteOperationValue operationValue = remoteRepositoryOperation(
+                final Result operationValue = remoteRepositoryOperation(
                         () -> gitRepositoryService.remoteRepositoryPush(
                                 repositoryLoginInfo,
                                 refSpec,
@@ -505,18 +505,18 @@ public class GitemberServiceImpl {
      * Process remote operations with failback
      *
      * @param supplier remote repository command.
-     * @return RemoteOperationValue which shall be interpret by caller
+     * @return Result which shall be interpret by caller
      */
-    RemoteOperationValue  operationValue;
-    public RemoteOperationValue remoteRepositoryOperation(final Supplier<RemoteOperationValue> supplier) {
+    Result operationValue;
+    public Result remoteRepositoryOperation(final Supplier<Result> supplier) {
 
 
         operationValue = supplier.get();
 
         while (
 
-                !(operationValue.getResult() == RemoteOperationValue.Result.OK
-                || operationValue.getResult() == RemoteOperationValue.Result.CANCEL)
+                !(operationValue.getCode() == Result.Code.OK
+                || operationValue.getCode() == Result.Code.CANCEL)
 
         ) {
 
@@ -542,8 +542,8 @@ public class GitemberServiceImpl {
 
                     operationValue = supplier.get();
                 } else {
-                    operationValue = new RemoteOperationValue(
-                            RemoteOperationValue.Result.CANCEL, "User cancel operation"
+                    operationValue = new Result(
+                            Result.Code.CANCEL, "User cancel operation"
                     );
                     GitemberUITool.showResult(
                             "Cancel",  Alert.AlertType.INFORMATION
@@ -564,8 +564,8 @@ public class GitemberServiceImpl {
 
     }
 
-    private String fillHeaderAndRelogomFlag(RemoteOperationValue operationValue) {
-        switch (operationValue.getResult()) {
+    private String fillHeaderAndRelogomFlag(Result operationValue) {
+        switch (operationValue.getCode()) {
             case GIT_AUTH_REQUIRED: {
                 return "Git. Please, provide login and password";
             }
@@ -589,9 +589,9 @@ public class GitemberServiceImpl {
         }
     }
 
-    private void prepareLongTask(final Task<RemoteOperationValue> longTask,
-                                 final Consumer<RemoteOperationValue> onOk,
-                                 final Consumer<RemoteOperationValue> onError) {
+    private void prepareLongTask(final Task<Result> longTask,
+                                 final Consumer<Result> onOk,
+                                 final Consumer<Result> onError) {
 
 
         progressBar.setVisible(true);
@@ -601,25 +601,25 @@ public class GitemberServiceImpl {
 
         longTask.setOnSucceeded(val -> Platform.runLater(
                 () -> {
-                    RemoteOperationValue rval = longTask.getValue();
+                    Result rval = longTask.getValue();
                     GitemberApp.getMainStage().getScene().setCursor(Cursor.DEFAULT);
                     operationProgressBar.progressProperty().unbind();
                     operationName.textProperty().unbind();
                     progressBar.setVisible(false);
 
 
-                    //RemoteOperationValue rval = longTask.getValue();
+                    //Result rval = longTask.getValue();
                     if (rval == null) {
-                        rval = new RemoteOperationValue(RemoteOperationValue.Result.ERROR, "Error");
+                        rval = new Result(Result.Code.ERROR, "Error");
                     }
                     String info = rval.getValue().toString(); //todo rval value can be not an string.  ????
 
-                    switch (rval.getResult()) {
+                    switch (rval.getCode()) {
                         case OK: {
                             if (onOk != null) {
                                 onOk.accept(rval);
                             }
-                            if (rval.getSecondValue() == null) {
+                            if (rval.getValueExt() == null) {
                                 GitemberUITool.showResult(info, Alert.AlertType.INFORMATION);
                             }
                             break;
@@ -659,9 +659,9 @@ public class GitemberServiceImpl {
 
     public void fetch(final String branchName) {
         
-        Task<RemoteOperationValue> longTask = new Task<RemoteOperationValue>() {
+        Task<Result> longTask = new Task<Result>() {
             @Override
-            protected RemoteOperationValue call()  {
+            protected Result call()  {
                 return remoteRepositoryOperation(
                         () -> gitRepositoryService.remoteRepositoryFetch(
                                 repositoryLoginInfo, branchName,
@@ -678,9 +678,9 @@ public class GitemberServiceImpl {
 
     public void pull(final String branchName) {
         
-        Task<RemoteOperationValue> longTask = new Task<RemoteOperationValue>() {
+        Task<Result> longTask = new Task<Result>() {
             @Override
-            protected RemoteOperationValue call() {
+            protected Result call() {
                 return remoteRepositoryOperation(
                         () -> gitRepositoryService.remoteRepositoryPull(
                                 branchName, repositoryLoginInfo,
@@ -710,8 +710,8 @@ public class GitemberServiceImpl {
         }
     }
 
-    public void cloneRepo(final Consumer<RemoteOperationValue> onOk,
-                          final Consumer<RemoteOperationValue> onError) {
+    public void cloneRepo(final Consumer<Result> onOk,
+                          final Consumer<Result> onError) {
         final GitemberSettings gitemberSettings = Context.getSettingsService().getGitemberSettings();
         final Set<String> urls = gitemberSettings
                 .getProjects()
@@ -758,9 +758,9 @@ public class GitemberServiceImpl {
 
 
 
-            Task<RemoteOperationValue> longTask = new Task<RemoteOperationValue>() {
+            Task<Result> longTask = new Task<Result>() {
                 @Override
-                protected RemoteOperationValue call()  {
+                protected Result call()  {
                     return remoteRepositoryOperation(
                             () -> gitRepositoryService.cloneRepository(
                                     repositoryLoginInfo.getProjectRemoteUrl(),
@@ -821,9 +821,9 @@ public class GitemberServiceImpl {
 
             final Set<String> files = gitRepositoryService.getAllFiles();
 
-            Task<RemoteOperationValue> longTask = new Task<RemoteOperationValue>() {
+            Task<Result> longTask = new Task<Result>() {
                 @Override
-                protected RemoteOperationValue call() {
+                protected Result call() {
 
                     return remoteRepositoryOperation(
                             () -> {
@@ -847,9 +847,9 @@ public class GitemberServiceImpl {
             };
 
             prepareLongTask(longTask,
-                    remoteOperationValue -> {
+                    result -> {
                         try {
-                            ScmStat scmStat = (ScmStat) remoteOperationValue.getSecondValue();
+                            ScmStat scmStat = (ScmStat) result.getValueExt();
                             StatViewController.openStatWindow(
                                     scmStat.getTotal(),
                                     scmStat.getLogMap()
@@ -889,9 +889,9 @@ public class GitemberServiceImpl {
         if (dialogResult.isPresent() && dialogResult.get() == ButtonType.OK) {
 
 
-            Task<RemoteOperationValue> longTask = new Task<RemoteOperationValue>() {
+            Task<Result> longTask = new Task<Result>() {
                 @Override
-                protected RemoteOperationValue call() throws Exception {
+                protected Result call() throws Exception {
                     return remoteRepositoryOperation(
                             () -> gitRepositoryService.compressDatabase(
                                     new DefaultProgressMonitor((t, d) -> {
@@ -971,10 +971,10 @@ public class GitemberServiceImpl {
 
 
     public Config getRepoConfig() {
-        return gitRepositoryService.getRepository().getConfig();
+        return gitRepositoryService.getRepoConfig();
     }
 
     public String getRepoFolder() {
-        return gitRepositoryService.getRepository().getDirectory().getAbsolutePath();
+        return gitRepositoryService.getRepoFolder();
     }
 }

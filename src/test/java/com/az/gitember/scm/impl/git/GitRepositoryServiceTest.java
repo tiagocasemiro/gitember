@@ -1,10 +1,7 @@
 package com.az.gitember.scm.impl.git;
 
 
-import com.az.gitember.misc.CommitInfo;
-import com.az.gitember.misc.Pair;
-import com.az.gitember.misc.ScmBranch;
-import com.az.gitember.misc.ScmRevisionInformation;
+import com.az.gitember.misc.*;
 import com.az.gitember.scm.exception.GECannotDeleteCurrentBranchException;
 import org.apache.commons.io.FileUtils;
 import org.eclipse.jgit.dircache.DirCache;
@@ -335,6 +332,19 @@ public class GitRepositoryServiceTest {
         assertTrue(str.contains("HAL9000"));
         assertTrue(str.contains("Bender"));
     }
+
+    @Test
+    public void compressDatabase() throws Exception {
+
+        createLocalBranch();
+        Result r = gitRepositoryService.compressDatabase(null);
+        assertEquals(Result.Code.OK, r.getCode());
+
+    }
+
+
+
+
 
 
 }

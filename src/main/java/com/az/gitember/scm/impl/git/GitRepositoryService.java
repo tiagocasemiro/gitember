@@ -287,6 +287,61 @@ public class GitRepositoryService {
     }
 
     /**
+     *
+     * @param upstream
+     *            the name of the upstream branch
+     * @return
+     * @throws Exception
+     */
+    public RebaseResult rebaseLocalBranch(final String upstream) throws Exception {
+        try (Git git = new Git(repository)) {
+            return git.rebase()
+                    .setUpstream(upstream)
+                    .call();
+        }
+    }
+
+    /**
+     * Rebase changes from given upstream into working copy.
+     *
+     * @param upstream
+     * @param progressMonitor optional progress monitor
+     * @throws GEScmAPIException
+     */
+    public RemoteOperationValue rebase(final String upstream,
+                                       final ProgressMonitor progressMonitor) {
+        throw new RuntimeException("TODO rething and reimplement");
+        /*try (Git git = new Git(repository)) {
+
+            RebaseCommand rebaseCommand = git
+                    .rebase()
+                    .setUpstream(upstream)
+                    .setProgressMonitor(progressMonitor);
+            RebaseResult rez = rebaseCommand.call();
+
+            String rezExplanation = getRebaseResultExplanation(rez);
+            if (rez.getStatus().isSuccessful()) {
+                log.log(Level.INFO, "Rebase result " + rezExplanation);
+                return new RemoteOperationValue(RemoteOperationValue.Result.OK, rezExplanation);
+
+            } else {
+                log.log(Level.INFO, "Rebase result was not successful, so revert changes " + rezExplanation);
+                rez = git
+                        .rebase()
+                        .setUpstream(upstream)
+                        .setProgressMonitor(progressMonitor)
+                        .setOperation(RebaseCommand.Operation.ABORT)
+                        .call();
+                rezExplanation = getRebaseResultExplanation(rez);
+                return new RemoteOperationValue(RemoteOperationValue.Result.ERROR, rezExplanation);
+            }
+        } catch (GitAPIException e) {
+            log.log(Level.WARNING, "Rebase error", e);
+            return new RemoteOperationValue(RemoteOperationValue.Result.ERROR, e.getMessage());
+        }*/
+    }
+
+    /**
      * Get list of local branches.
      *
      * @return list of local branches.
@@ -452,6 +507,11 @@ public class GitRepositoryService {
         }
     }
 
+    /**
+     * Revert changes or reolve conflict
+     * @param fileName file name
+     * @param stage
+     */
     public void checkoutFile(final String fileName, Stage stage) {
 
         try (Git git = new Git(repository)) {
@@ -469,6 +529,55 @@ public class GitRepositoryService {
     }
 
 
+
+
+    /**
+     * Save given fileName at tree/revision into output stream.
+     *
+     * @param treeName     tree name
+     * @param revisionName revision name
+     * @param fileName     file name
+     * @return absolute path to saved file
+     */
+    public String saveFile(String treeName, String revisionName,
+                           String fileName) throws IOException {
+
+        final ObjectId lastCommitId = repository.resolve(revisionName);
+        final String fileNameExtension = GitemberUtil.getExtension(fileName);
+        final File temp = File.createTempFile(
+                Const.TEMP_FILE_PREFIX,
+                fileNameExtension.isEmpty() ? fileNameExtension : "." + fileNameExtension);
+        GitRepositoryService.deleteOnExit(temp);
+
+        try (RevWalk revWalk = new RevWalk(repository);
+             OutputStream outputStream = new FileOutputStream(temp)) {
+
+            RevCommit commit = revWalk.parseCommit(lastCommitId);
+            // and using commit's tree find the path
+            RevTree tree = commit.getTree();
+
+            // now try to find a specific file
+            try (TreeWalk treeWalk = new TreeWalk(repository)) {
+                treeWalk.addTree(tree);
+                treeWalk.setRecursive(true);
+                treeWalk.setFilter(PathFilter.create(fileName));
+                if (!treeWalk.next()) {
+                    throw new IllegalStateException("Did not find expected file " + fileName);
+                }
+
+
+                ObjectId objectId = treeWalk.getObjectId(0);
+                ObjectLoader loader = repository.open(objectId);
+
+                // and then one can the loader to read the file
+                loader.copyTo(outputStream);
+            }
+
+            revWalk.dispose();
+        }
+
+        return temp.getAbsolutePath();
+    }
 
 
     //-------------------------------------------------------------------------------------------
@@ -879,55 +988,6 @@ public class GitRepositoryService {
 
 
 
-
-    /**
-     * Save given fileName at tree/revision into output stream.
-     *
-     * @param treeName     tree name
-     * @param revisionName revision name
-     * @param fileName     file name
-     * @return absolute path to saved file
-     */
-    public String saveFile(String treeName, String revisionName,
-                           String fileName) throws IOException {
-
-        final ObjectId lastCommitId = repository.resolve(revisionName);
-        final String fileNameExtension = GitemberUtil.getExtension(fileName);
-        final File temp = File.createTempFile(
-                Const.TEMP_FILE_PREFIX,
-                fileNameExtension.isEmpty() ? fileNameExtension : "." + fileNameExtension);
-        GitRepositoryService.deleteOnExit(temp);
-
-        try (RevWalk revWalk = new RevWalk(repository);
-             OutputStream outputStream = new FileOutputStream(temp)) {
-
-            RevCommit commit = revWalk.parseCommit(lastCommitId);
-            // and using commit's tree find the path
-            RevTree tree = commit.getTree();
-
-            // now try to find a specific file
-            try (TreeWalk treeWalk = new TreeWalk(repository)) {
-                treeWalk.addTree(tree);
-                treeWalk.setRecursive(true);
-                treeWalk.setFilter(PathFilter.create(fileName));
-                if (!treeWalk.next()) {
-                    throw new IllegalStateException("Did not find expected file " + fileName);
-                }
-
-
-                ObjectId objectId = treeWalk.getObjectId(0);
-                ObjectLoader loader = repository.open(objectId);
-
-                // and then one can the loader to read the file
-                loader.copyTo(outputStream);
-            }
-
-            revWalk.dispose();
-        }
-
-        return temp.getAbsolutePath();
-    }
-
     /**
      * Get statuses
      *
@@ -1014,43 +1074,7 @@ public class GitRepositoryService {
 
 
 
-    /**
-     * Rebase changes from given upstream into working copy.
-     *
-     * @param upstream
-     * @throws GEScmAPIException
-     */
-    public RemoteOperationValue rebase(final String upstream,
-                                       final ProgressMonitor progressMonitor) {
-        try (Git git = new Git(repository)) {
 
-            RebaseCommand rebaseCommand = git
-                    .rebase()
-                    .setUpstream(upstream)
-                    .setProgressMonitor(progressMonitor);
-            RebaseResult rez = rebaseCommand.call();
-
-            String rezExplanation = getRebaseResultExplanation(rez);
-            if (rez.getStatus().isSuccessful()) {
-                log.log(Level.INFO, "Rebase result " + rezExplanation);
-                return new RemoteOperationValue(RemoteOperationValue.Result.OK, rezExplanation);
-
-            } else {
-                log.log(Level.INFO, "Rebase result was not successful, so revert changes " + rezExplanation);
-                rez = git
-                        .rebase()
-                        .setUpstream(upstream)
-                        .setProgressMonitor(progressMonitor)
-                        .setOperation(RebaseCommand.Operation.ABORT)
-                        .call();
-                rezExplanation = getRebaseResultExplanation(rez);
-                return new RemoteOperationValue(RemoteOperationValue.Result.ERROR, rezExplanation);
-            }
-        } catch (GitAPIException e) {
-            log.log(Level.WARNING, "Rebase error", e);
-            return new RemoteOperationValue(RemoteOperationValue.Result.ERROR, e.getMessage());
-        }
-    }
 
     private String getRebaseResultExplanation(RebaseResult rez) {
         StringBuilder rezInfo = new StringBuilder();

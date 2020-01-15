@@ -29,6 +29,8 @@ public class GitRepositoryServiceTest {
     private static String IGNORE_FILE = ".gitignore";
     private static String FOLDER = "folder";
     private static String MORE_FILE1 = "file1.txt";
+    private static String MORE_FILE2 = "file2.txt";
+    private static String MORE_FILE3 = "file3.txt";
     private static String FN_BR1 = "refs/heads/br1";
     private static String FN_MASTER = "refs/heads/master";
 
@@ -158,6 +160,40 @@ public class GitRepositoryServiceTest {
         assertEquals(2, gitRepositoryService.getAllFiles(FN_MASTER).size());
         gitRepositoryService.mergeLocalBranch(FN_BR1, "Merger from branch 1");
         assertEquals(3, gitRepositoryService.getAllFiles(FN_MASTER).size());
+    }
+
+    @Test
+    public void rebaseLocalBranch() throws Exception {
+        createLocalBranch();
+        gitRepositoryService.checkoutLocalBranch(FN_MASTER);
+        assertEquals(2, gitRepositoryService.getAllFiles(FN_MASTER).size());
+        //just ade new file
+
+
+        Files.write(
+                Paths.get(tmpGitProjectPath.toString(), MORE_FILE2),
+                "test file 2 to master".getBytes(), StandardOpenOption.CREATE);
+        DirCache dc = gitRepositoryService.addFileToCommitStage(
+                Paths.get(MORE_FILE2).toString()
+        );
+        assertEquals(3, dc.getEntryCount());
+        RevCommit rc = gitRepositoryService.commit("Added new file 2 to master");
+
+
+        gitRepositoryService.checkoutLocalBranch(FN_BR1);
+        Files.write(
+                Paths.get(tmpGitProjectPath.toString(), MORE_FILE3),
+                "test file 3 to br1".getBytes(), StandardOpenOption.CREATE);
+        dc = gitRepositoryService.addFileToCommitStage(
+                Paths.get(MORE_FILE3).toString()
+        );
+        assertEquals("In branch br1 we have 4 files", 4, dc.getEntryCount());
+        gitRepositoryService.commit("Added new file 4 to br1");
+
+        gitRepositoryService.rebaseLocalBranch(FN_MASTER);
+        assertEquals(5, gitRepositoryService.getAllFiles(FN_BR1).size());
+
+
     }
 
     @Test

@@ -936,8 +936,8 @@ public class GitemberServiceImpl {
         gitRepositoryService.removeFileFromCommitStage(shortName);
     }
 
-    public void removeMissedFile(String shortName) throws Exception {
-        gitRepositoryService.removeMissedFile(shortName);
+    public void removeFile(String shortName) throws Exception {
+        gitRepositoryService.removeFile(shortName);
     }
 
     public String saveDiff(String treeName, String revisionName, String fileName) throws Exception {

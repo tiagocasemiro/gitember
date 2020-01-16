@@ -5,7 +5,6 @@ import com.az.gitember.scm.exception.GEScmAPIException;
 import com.az.gitember.service.Context;
 import com.az.gitember.ui.AutoCompleteTextField;
 import com.az.gitember.ui.StatusCellValueFactory;
-import com.jcraft.jsch.IO;
 import com.sun.javafx.binding.StringConstant;
 import difflib.DiffUtils;
 import difflib.Patch;
@@ -675,7 +674,7 @@ public class WorkingCopyController implements Initializable {
             if (item != null) {
                 if (isUnstaged(item)) {
                     if (item.getAttribute().getStatus().contains(ScmItemStatus.MISSED)) {
-                        Context.getGitemberService().removeMissedFile(item.getShortName());
+                        Context.getGitemberService().removeFile(item.getShortName());
                         item.getAttribute().getStatus().remove(ScmItemStatus.MISSED);
                         item.getAttribute().getStatus().add(ScmItemStatus.REMOVED);
                     } else if (item.getAttribute().getStatus().contains(ScmItemStatus.UNTRACKED)) {
@@ -746,7 +745,7 @@ public class WorkingCopyController implements Initializable {
                             item.getAttribute().getStatus().add(ScmItemStatus.CHANGED);
                             item.getAttribute().getStatus().add(ScmItemStatus.UNCOMMITED);
                         } else {
-                            Context.getGitemberService().removeMissedFile(item.getShortName());
+                            Context.getGitemberService().removeFile(item.getShortName());
                             item.getAttribute().getStatus().remove(ScmItemStatus.MISSED);
                             item.getAttribute().getStatus().add(ScmItemStatus.REMOVED);
                         }

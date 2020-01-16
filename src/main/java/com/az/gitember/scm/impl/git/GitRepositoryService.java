@@ -628,7 +628,7 @@ public class GitRepositoryService {
     }
 
 
-    //-------------------------------------------------------------------------------------------
+
 
 
     /**
@@ -744,43 +744,7 @@ public class GitRepositoryService {
 
 
     /**
-     * Get lis of changed files.
-     *
-     * @param treeName           given tree
-     * @param revisionCommitName given revision
-     * @return list of changed files
-     * @throws Exception
-     */
-    /*public List<ScmItem> getChangedFiles(final String treeName, final String revisionCommitName) throws Exception {
-        try (Git git = new Git(repository)) {
-            final LogCommand cmd = git.log()
-                    .add(repository.resolve(treeName))
-                    .setRevFilter(new SingleRevisionFilter(revisionCommitName));
-            return getScmItems(cmd);
-        }
-    }*/
-
-
-    /**
-     * Get list of  revisions for given cmd
-     *
-     * @param cmd given cmd
-     * @return list of {@link ScmItem}
-     * @throws GitAPIException
-     * @throws IOException
-     */
-    /*private List<ScmItem> getScmItems(LogCommand cmd) throws GitAPIException, IOException {
-        ArrayList<ScmItem> scmItems = new ArrayList<>();
-        final Iterable<RevCommit> revCommits = cmd.call();
-        final RevCommit revCommit = revCommits.iterator().next();
-        scmItems.addAll(
-                getScmItems(revCommit, null)
-        );
-        return scmItems;
-    }*/
-
-    /**
-     * Get list of files in given revision.
+     * Get list of changed files in given revision.
      *
      * @param revCommit rev commit instance
      * @param filePath  optional value to filter list of changed files
@@ -811,32 +775,6 @@ public class GitRepositoryService {
     }
 
 
-
-
-    private ScmItem adaptDiffEntry(DiffEntry diff) {
-        ScmItemAttribute attr = new ScmItemAttribute();
-        if (diff.getChangeType() == DiffEntry.ChangeType.DELETE) {
-            attr.setName(diff.getOldPath());
-        } else if (diff.getChangeType() == DiffEntry.ChangeType.COPY || diff.getChangeType() == DiffEntry.ChangeType.RENAME) {
-            attr.setName(diff.getNewPath());
-            attr.setOldName(diff.getOldPath());
-        } else {
-            attr.setName(diff.getNewPath());
-        }
-        return new ScmItem(diff.getChangeType().name(), attr);
-    }
-
-    /**
-     * Visualize branch commits.
-     * @param treeName trhee name
-     * @return PlotCommitList<PlotLane>
-     * @throws Exception
-     */
-    /*public PlotCommitList<PlotLane> getCommitsByTree(final String treeName) throws Exception {
-        final PlotCommitList<PlotLane> rez =  getCommitsByTree(treeName, false);
-        return  rez;
-    }*/
-
     /**
      * Get revisions to visualize. Fr more detail look at
      * https://stackoverflow.com/questions/12691633/jgit-get-all-commits-plotcommitlist-that-affected-a-file-path
@@ -851,23 +789,12 @@ public class GitRepositoryService {
 
             final RevCommit root = revWalk.parseCommit(rootId);
             revWalk.markStart(root);
-
-            //final ObjectId rootId = repository.resolve(Constants.HEAD);
-
-            /*
-            Aternative  to see all ?
-            revWalk.setTreeFilter(
-                    AndTreeFilter.create(PathFilter.create(path), TreeFilter.ANY_DIFF));
-            */
             if(all) {
                 revWalk.setTreeFilter(TreeFilter.ALL);
-
                 Collection<Ref> allRefs = repository.getAllRefs().values();
                 for (Ref ref : allRefs) {
                     revWalk.markStart(revWalk.parseCommit(ref.getObjectId()));
-
                 }
-                //revWalk.addAdditionalRefs(allRefs);
             }
             final PlotCommitList<PlotLane> plotCommitList = new PlotCommitList<>();
             plotCommitList.source(revWalk);
@@ -878,25 +805,19 @@ public class GitRepositoryService {
     }
 
 
-
-
-    private AbstractTreeIterator prepareTreeParser(Repository repository, String objectId) throws IOException {
-        // from the commit we can build the tree which allows us to construct the TreeParser
-        // noinspection Duplicates
-        try (RevWalk walk = new RevWalk(repository)) {
-            RevCommit commit = walk.parseCommit(ObjectId.fromString(objectId));
-            RevTree tree = walk.parseTree(commit.getTree().getId());
-
-            CanonicalTreeParser oldTreeParser = new CanonicalTreeParser();
-            try (ObjectReader oldReader = repository.newObjectReader()) {
-                oldTreeParser.reset(oldReader, tree.getId());
-            }
-
-            walk.dispose();
-
-            return oldTreeParser;
+    public void removeFile(String fileName) throws Exception {
+        try (Git git = new Git(repository)) {
+            git.rm().addFilepattern(fileName).call();
         }
+
     }
+
+    //-------------------------------------------------------------------------------------------
+
+
+
+
+
 
 
 
@@ -948,6 +869,24 @@ public class GitRepositoryService {
 
     }
 
+    private AbstractTreeIterator prepareTreeParser(Repository repository, String objectId) throws IOException {
+        // from the commit we can build the tree which allows us to construct the TreeParser
+        // noinspection Duplicates
+        try (RevWalk walk = new RevWalk(repository)) {
+            RevCommit commit = walk.parseCommit(ObjectId.fromString(objectId));
+            RevTree tree = walk.parseTree(commit.getTree().getId());
+
+            CanonicalTreeParser oldTreeParser = new CanonicalTreeParser();
+            try (ObjectReader oldReader = repository.newObjectReader()) {
+                oldTreeParser.reset(oldReader, tree.getId());
+            }
+
+            walk.dispose();
+
+            return oldTreeParser;
+        }
+    }
+
     private String getConflictSubStatus(String key, Map<String, IndexDiff.StageState> conflictingStageState) {
 
         return adaptConflictingState(conflictingStageState.get(key));
@@ -985,12 +924,6 @@ public class GitRepositoryService {
         rez.put(item, list);
     }
 
-
-
-
-
-
-
     private String getRebaseResultExplanation(RebaseResult rez) {
         StringBuilder rezInfo = new StringBuilder();
         rezInfo.append("Status : ");
@@ -1017,12 +950,7 @@ public class GitRepositoryService {
 
 
 
-    public void removeMissedFile(String fileName) throws Exception {
-        try (Git git = new Git(repository)) {
-            git.rm().addFilepattern(fileName).call();
-        }
 
-    }
 
 
 
@@ -1348,32 +1276,7 @@ public class GitRepositoryService {
         return commit;
     }
 
-    private Ref findBranchToCheckout(FetchResult result) {
-        final Ref idHEAD = result.getAdvertisedRef(Constants.HEAD);
-        ObjectId headId = idHEAD != null ? idHEAD.getObjectId() : null;
-        if (headId == null) {
-            return null;
-        }
 
-        Ref master = result.getAdvertisedRef(Constants.R_HEADS
-                + Constants.MASTER);
-        ObjectId objectId = master != null ? master.getObjectId() : null;
-        if (headId.equals(objectId)) {
-            return master;
-        }
-
-        Ref foundBranch = null;
-        for (final Ref r : result.getAdvertisedRefs()) {
-            final String n = r.getName();
-            if (!n.startsWith(Constants.R_HEADS))
-                continue;
-            if (headId.equals(r.getObjectId())) {
-                foundBranch = r;
-                break;
-            }
-        }
-        return foundBranch;
-    }
 
     /**
      * Set track remote branch
@@ -1663,6 +1566,46 @@ public class GitRepositoryService {
         return df;
     }
 
+    private ScmItem adaptDiffEntry(DiffEntry diff) {
+        ScmItemAttribute attr = new ScmItemAttribute();
+        if (diff.getChangeType() == DiffEntry.ChangeType.DELETE) {
+            attr.setName(diff.getOldPath());
+        } else if (diff.getChangeType() == DiffEntry.ChangeType.COPY || diff.getChangeType() == DiffEntry.ChangeType.RENAME) {
+            attr.setName(diff.getNewPath());
+            attr.setOldName(diff.getOldPath());
+        } else {
+            attr.setName(diff.getNewPath());
+        }
+        return new ScmItem(diff.getChangeType().name(), attr);
+    }
+
+    private Ref findBranchToCheckout(FetchResult result) {
+        final Ref idHEAD = result.getAdvertisedRef(Constants.HEAD);
+        ObjectId headId = idHEAD != null ? idHEAD.getObjectId() : null;
+        if (headId == null) {
+            return null;
+        }
+
+        Ref master = result.getAdvertisedRef(Constants.R_HEADS
+                + Constants.MASTER);
+        ObjectId objectId = master != null ? master.getObjectId() : null;
+        if (headId.equals(objectId)) {
+            return master;
+        }
+
+        Ref foundBranch = null;
+        for (final Ref r : result.getAdvertisedRefs()) {
+            final String n = r.getName();
+            if (!n.startsWith(Constants.R_HEADS))
+                continue;
+            if (headId.equals(r.getObjectId())) {
+                foundBranch = r;
+                break;
+            }
+        }
+        return foundBranch;
+    }
+
     //--------------------------- trash --------------------------
 
 
@@ -1688,6 +1631,54 @@ public class GitRepositoryService {
             log.log(Level.SEVERE, "Cannot get list of branches", e);
         }
         return null;
+    }*/
+
+
+    /**
+     * Get lis of changed files.
+     *
+     * @param treeName           given tree
+     * @param revisionCommitName given revision
+     * @return list of changed files
+     * @throws Exception
+     */
+    /*public List<ScmItem> getChangedFiles(final String treeName, final String revisionCommitName) throws Exception {
+        try (Git git = new Git(repository)) {
+            final LogCommand cmd = git.log()
+                    .add(repository.resolve(treeName))
+                    .setRevFilter(new SingleRevisionFilter(revisionCommitName));
+            return getScmItems(cmd);
+        }
+    }*/
+
+
+    /**
+     * Get list of  revisions for given cmd
+     *
+     * @param cmd given cmd
+     * @return list of {@link ScmItem}
+     * @throws GitAPIException
+     * @throws IOException
+     */
+    /*private List<ScmItem> getScmItems(LogCommand cmd) throws GitAPIException, IOException {
+        ArrayList<ScmItem> scmItems = new ArrayList<>();
+        final Iterable<RevCommit> revCommits = cmd.call();
+        final RevCommit revCommit = revCommits.iterator().next();
+        scmItems.addAll(
+                getScmItems(revCommit, null)
+        );
+        return scmItems;
+    }*/
+
+    /**
+     * Visualize branch commits.
+     * @param treeName trhee name
+     * @return PlotCommitList<PlotLane>
+     * @throws Exception
+     */
+    /*public PlotCommitList<PlotLane> getCommitsByTree(final String treeName) throws Exception {
+        final PlotCommitList<PlotLane> rez =  getCommitsByTree(treeName, false);
+        return  rez;
     }*/
 
 }

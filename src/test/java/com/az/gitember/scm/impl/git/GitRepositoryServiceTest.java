@@ -147,7 +147,9 @@ public class GitRepositoryServiceTest {
     public void deleteLocalBranch() throws Exception {
         createLocalBranch();
         gitRepositoryService.checkoutLocalBranch(FN_MASTER);
+        assertEquals(2, gitRepositoryService.getLocalBranches().size());
         gitRepositoryService.deleteLocalBranch(FN_BR1);
+        assertEquals(1, gitRepositoryService.getLocalBranches().size());
     }
 
     @Test
@@ -339,6 +341,18 @@ public class GitRepositoryServiceTest {
         createLocalBranch();
         Result r = gitRepositoryService.compressDatabase(null);
         assertEquals(Result.Code.OK, r.getCode());
+
+    }
+
+
+
+
+    @Test
+    public void removeFile() throws Exception {
+        commit();
+        gitRepositoryService.removeFile(README_FILE);
+        RevCommit rc = gitRepositoryService.commit("Removed md");
+        assertEquals(1, gitRepositoryService.getAllFiles(FN_MASTER).size());
 
     }
 

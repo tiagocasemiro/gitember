@@ -7,8 +7,8 @@ import java.util.Map;
  */
 public class ScmStat {
 
-    private Map<String, Integer> total;
-    private Map<String, Integer> logMap;
+    private final Map<String, Integer> total;
+    private final Map<String, Integer> logMap;
 
     public ScmStat(Map<String, Integer> total, Map<String, Integer> logMap) {
         this.total = total;
@@ -19,16 +19,8 @@ public class ScmStat {
         return logMap;
     }
 
-    public void setLogMap(Map<String, Integer> logMap) {
-        this.logMap = logMap;
-    }
-
-
     public Map<String, Integer> getTotal() {
         return total;
     }
 
-    public void setTotal(Map<String, Integer> total) {
-        this.total = total;
-    }
 }

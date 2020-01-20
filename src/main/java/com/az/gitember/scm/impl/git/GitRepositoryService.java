@@ -28,6 +28,7 @@ import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.revwalk.filter.RevFilter;
+import org.eclipse.jgit.storage.pack.PackConfig;
 import org.eclipse.jgit.transport.*;
 import org.eclipse.jgit.treewalk.AbstractTreeIterator;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
@@ -35,6 +36,7 @@ import org.eclipse.jgit.treewalk.TreeWalk;
 import org.eclipse.jgit.treewalk.filter.PathFilter;
 import org.eclipse.jgit.treewalk.filter.TreeFilter;
 import org.eclipse.jgit.util.FS;
+import org.eclipse.jgit.util.HttpSupport;
 import org.eclipse.jgit.util.io.DisabledOutputStream;
 
 import javax.net.ssl.SSLHandshakeException;
@@ -977,7 +979,16 @@ public class GitRepositoryService {
                 .setDirectory(new File(folder))
                 .setCloneAllBranches(true)
                 .setCloneSubmodules(true)
+                .setTransportConfigCallback(
+                        transport -> {
+                            if (transport instanceof TransportHttp) {
+                                TransportHttp myTransport = (TransportHttp)transport;
+                                myTransport.applyConfig(null);
+                            }
+                        }
+                )
                 .setProgressMonitor(progressMonitor);
+        //cmd.getRepository().getConfig().setBoolean("http", null, "sslVerify", false);
 
         /*if (reporitoryUrl.startsWith("git@")) {
             JschConfigSessionFactory sshSessionFactory = createSshSessionFactory(password, pathToKey);

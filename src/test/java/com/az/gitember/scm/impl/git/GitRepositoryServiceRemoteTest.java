@@ -11,9 +11,14 @@ import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.TransportException;
 import org.eclipse.jgit.dircache.DirCache;
 import org.eclipse.jgit.junit.http.SimpleHttpServer;
+import org.eclipse.jgit.lib.ConfigConstants;
+import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.Ref;
+import org.eclipse.jgit.lib.StoredConfig;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.storage.file.FileBasedConfig;
+import org.eclipse.jgit.transport.HttpTransport;
+import org.eclipse.jgit.transport.http.HttpConnectionFactory;
 import org.eclipse.jgit.util.FS;
 import org.eclipse.jgit.util.SystemReader;
 import org.junit.After;
@@ -92,17 +97,28 @@ public class GitRepositoryServiceRemoteTest {
     @Test
     public void testCloneHTTPS()  throws Exception {
 
+        /*HttpConnectionFactory preservedConnectionFactory = HttpTransport.getConnectionFactory();
+        HttpTransport.setConnectionFactory( new InsecureHttpConnectionFactory() );
+// clone repository
+        HttpTransport.setConnectionFactory( preservedConnectionFactory );*/
+
         simpleHttpServer.stop();
 
-        FileBasedConfig fbc = SystemReader.getInstance().openUserConfig( null, FS.DETECTED );
-        fbc.setBoolean("http", null, "sslVerify", false);
-        fbc.save();
-        
+        //FileBasedConfig fbc = SystemReader.getInstance().openUserConfig( null, FS.DETECTED );
+        //fbc.getString("user", null, "name");
+        //fbc.setBoolean("http", null, "sslVerify", false); // just to catch exception for verifycation
+        //fbc.save();
+
 
         simpleHttpServer = new SimpleHttpServer(gitRepositoryService.getRepository(), true);
         simpleHttpServer.start();
 
         fromRepo = simpleHttpServer.getSecureUri().toString();
+
+        /*final StoredConfig config = git.getRepository().getConfig();
+        config.setString(ConfigConstants.CONFIG_KEY_REMOTE, Constants.DEFAULT_REMOTE_NAME, "url", reporitoryUrl);
+        config.setString(ConfigConstants.CONFIG_KEY_REMOTE, Constants.DEFAULT_REMOTE_NAME, "fetch", "+refs/heads/*:refs/remotes/origin/*");
+        config.setBoolean("http", null, "sslVerify", false);*/
 
         try {
 

@@ -13,6 +13,9 @@ import org.eclipse.jgit.dircache.DirCache;
 import org.eclipse.jgit.junit.http.SimpleHttpServer;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.storage.file.FileBasedConfig;
+import org.eclipse.jgit.util.FS;
+import org.eclipse.jgit.util.SystemReader;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -87,7 +90,41 @@ public class GitRepositoryServiceRemoteTest {
     }
 
     @Test
-    public void testCloneSSLBadHandshake()  throws Exception {
+    public void testCloneHTTPS()  throws Exception {
+
+        simpleHttpServer.stop();
+
+        FileBasedConfig fbc = SystemReader.getInstance().openUserConfig( null, FS.DETECTED );
+        fbc.setBoolean("http", null, "sslVerify", false);
+        fbc.save();
+        
+
+        simpleHttpServer = new SimpleHttpServer(gitRepositoryService.getRepository(), true);
+        simpleHttpServer.start();
+
+        fromRepo = simpleHttpServer.getSecureUri().toString();
+
+        try {
+
+            gitRepositoryService.cloneRepository(
+                    fromRepo,
+                    clonedRepoPath,
+                    defaultUser,defaultPassword,
+                    null, null
+            );
+
+            assertTrue(Files.exists(Paths.get(clonedRepoPath, README_FILE)));
+            assertTrue(Files.exists(Paths.get(clonedRepoPath, IGNORE_FILE)));
+        } catch (Exception e) {
+            assertEquals("Not, expected", e.getMessage());
+        }
+
+
+
+    }
+
+    @Test
+    public void testCloneHTTPSBadHandshake()  throws Exception {
 
         simpleHttpServer.stop();
         simpleHttpServer = new SimpleHttpServer(gitRepositoryService.getRepository(), true);
@@ -107,9 +144,6 @@ public class GitRepositoryServiceRemoteTest {
         } catch (GitAPIException e) {
             assertEquals("Not, expected", e.getMessage());
         }
-
-
-
     }
 
     @Test

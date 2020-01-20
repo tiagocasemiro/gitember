@@ -762,17 +762,24 @@ public class GitemberServiceImpl {
                 @Override
                 protected Result call()  {
                     return remoteRepositoryOperation(
-                            () -> gitRepositoryService.cloneRepository(
-                                    repositoryLoginInfo.getProjectRemoteUrl(),
-                                    repositoryLoginInfo.getProjectHameFolder(),
-                                    repositoryLoginInfo.getUserName(),
-                                    repositoryLoginInfo.getProjectPwd(),
-                                    repositoryLoginInfo.getProjectKeyPath(),
-                                    new DefaultProgressMonitor((t, d) -> {
-                                        updateTitle(t);
-                                        updateProgress(d, 1.0);
-                                    })
-                            )
+                            () -> {
+                                try {
+                                    return gitRepositoryService.cloneRepository(
+                                            repositoryLoginInfo.getProjectRemoteUrl(),
+                                            repositoryLoginInfo.getProjectHameFolder(),
+                                            repositoryLoginInfo.getUserName(),
+                                            repositoryLoginInfo.getProjectPwd(),
+                                            repositoryLoginInfo.getProjectKeyPath(),
+                                            new DefaultProgressMonitor((t, d) -> {
+                                                updateTitle(t);
+                                                updateProgress(d, 1.0);
+                                            })
+                                    );
+                                } catch (GitAPIException e) {
+                                    e.printStackTrace();
+                                }
+                                return null; //TODO fix
+                            }
                     );
                 }
             };

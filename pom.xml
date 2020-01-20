@@ -20,13 +20,13 @@
         <name>Igor Azarny</name>
     </organization>
 
-    <repositories>
+    <!--repositories>
         <repository>
             <id>central</id>
             <name>jcenter</name>
             <url>http://jcenter.bintray.com</url>
         </repository>
-    </repositories>
+    </repositories-->
 
     <build>
         <resources>
@@ -165,8 +165,16 @@
         <dependency>
             <groupId>org.eclipse.jgit</groupId>
             <artifactId>org.eclipse.jgit</artifactId>
-            <version>5.3.2.201906051522-r</version>
+            <version>5.6.0.201912101111-r</version>
         </dependency>
+
+        <!-- https://mvnrepository.com/artifact/org.eclipse.jgit/org.eclipse.jgit.junit.http -->
+        <dependency>
+            <groupId>org.eclipse.jgit</groupId>
+            <artifactId>org.eclipse.jgit.junit.http</artifactId>
+            <version>5.6.0.201912101111-r</version>
+        </dependency>
+
 
 
         <!-- https://mvnrepository.com/artifact/org.fxmisc.richtext/richtextfx -->

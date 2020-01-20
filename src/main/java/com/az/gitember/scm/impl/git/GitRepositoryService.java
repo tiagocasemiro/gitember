@@ -90,6 +90,9 @@ public class GitRepositoryService {
         config = null;
     }
 
+    Repository getRepository() {
+        return repository;
+    }
 
     /**
      * Create new git repository.
@@ -967,7 +970,7 @@ public class GitRepositoryService {
     public Result cloneRepository(final String reporitoryUrl, final String folder,
                                   final String userName, final String password,
                                   final String pathToKey,
-                                  final ProgressMonitor progressMonitor) {
+                                  final ProgressMonitor progressMonitor) throws GitAPIException {
 
         final CloneCommand cmd = Git.cloneRepository()
                 .setURI(reporitoryUrl)
@@ -976,13 +979,13 @@ public class GitRepositoryService {
                 .setCloneSubmodules(true)
                 .setProgressMonitor(progressMonitor);
 
-        if (reporitoryUrl.startsWith("git@")) {
+        /*if (reporitoryUrl.startsWith("git@")) {
             JschConfigSessionFactory sshSessionFactory = createSshSessionFactory(password, pathToKey);
             cmd.setTransportConfigCallback(transport -> {
                 SshTransport sshTransport = (SshTransport) transport;
                 sshTransport.setSshSessionFactory(sshSessionFactory);
             });
-        }
+        }*/
 
         if (userName != null) {
             cmd.setCredentialsProvider(
@@ -990,22 +993,24 @@ public class GitRepositoryService {
             );
         }
 
-        try {
-            try (Git result = cmd.call()) {
-                Object rez = result.getRepository().getDirectory().getAbsolutePath();
-                return new Result(rez);
+        try (Git result = cmd.call()) {
+            String rez = result.getRepository().getDirectory().getAbsolutePath();
+            return new Result(rez);
 
-            }
-        } catch (TransportException te) {
+        }
+
+        //try {
+
+        /*} catch (TransportException te) {
             if (te.getCause() != null && te.getCause().getCause() != null
                     && te.getCause().getCause().getClass().equals(SSLHandshakeException.class)) {
                 return fetchRepository(reporitoryUrl, folder, userName, password, progressMonitor);
             } else {
                 return processError(te);
-            }
-        } catch (Exception e) {
+            }*/
+        /*} catch (Exception e) {
             return processError(e);
-        }
+        }*/
 
     }
 

@@ -1,10 +1,7 @@
 package com.az.gitember.scm.impl.git;
 
 
-import com.az.gitember.misc.CommitInfo;
-import com.az.gitember.misc.Result;
-import com.az.gitember.misc.ScmBranch;
-import com.az.gitember.misc.ScmRevisionInformation;
+import com.az.gitember.misc.*;
 import com.az.gitember.scm.exception.GECannotDeleteCurrentBranchException;
 import org.apache.commons.io.FileUtils;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -37,6 +34,7 @@ import static org.junit.Assert.*;
 
 public class GitRepositoryServiceRemoteTest {
 
+    private static String MORE_FILE0 = "file0.txt";
     private static String README_FILE = "README.md";
     private static String IGNORE_FILE = ".gitignore";
 
@@ -82,11 +80,11 @@ public class GitRepositoryServiceRemoteTest {
     }
 
     @Test
-    public void testClone()  throws Exception {
+    public void testClone() throws Exception {
         gitRepositoryService.cloneRepository(
                 fromRepo,
                 clonedRepoPath,
-                defaultUser,defaultPassword,
+                defaultUser, defaultPassword,
                 null, null
         );
 
@@ -95,37 +93,28 @@ public class GitRepositoryServiceRemoteTest {
     }
 
     @Test
-    public void testCloneHTTPS()  throws Exception {
+    public void testCloneHTTPS() throws Exception {
 
-        /*HttpConnectionFactory preservedConnectionFactory = HttpTransport.getConnectionFactory();
-        HttpTransport.setConnectionFactory( new InsecureHttpConnectionFactory() );
-// clone repository
-        HttpTransport.setConnectionFactory( preservedConnectionFactory );*/
-
+        // restart http server with https support
         simpleHttpServer.stop();
-
-        //FileBasedConfig fbc = SystemReader.getInstance().openUserConfig( null, FS.DETECTED );
-        //fbc.getString("user", null, "name");
-        //fbc.setBoolean("http", null, "sslVerify", false); // just to catch exception for verifycation
-        //fbc.save();
-
-
         simpleHttpServer = new SimpleHttpServer(gitRepositoryService.getRepository(), true);
         simpleHttpServer.start();
 
-        fromRepo = simpleHttpServer.getSecureUri().toString();
 
-        /*final StoredConfig config = git.getRepository().getConfig();
-        config.setString(ConfigConstants.CONFIG_KEY_REMOTE, Constants.DEFAULT_REMOTE_NAME, "url", reporitoryUrl);
-        config.setString(ConfigConstants.CONFIG_KEY_REMOTE, Constants.DEFAULT_REMOTE_NAME, "fetch", "+refs/heads/*:refs/remotes/origin/*");
-        config.setBoolean("http", null, "sslVerify", false);*/
+        // just to be sure that service code will change the value to false
+        StoredConfig fbcOrig = SystemReader.getInstance().getUserConfig();
+        fbcOrig.setBoolean(Const.Config.HTTP, null, Const.Config.SLL_VERIFY, true);
+        fbcOrig.save();
+
+
+        fromRepo = simpleHttpServer.getSecureUri().toString();
 
         try {
 
             gitRepositoryService.cloneRepository(
                     fromRepo,
                     clonedRepoPath,
-                    defaultUser,defaultPassword,
+                    defaultUser, defaultPassword,
                     null, null
             );
 
@@ -136,11 +125,10 @@ public class GitRepositoryServiceRemoteTest {
         }
 
 
-
     }
 
     @Test
-    public void testCloneHTTPSBadHandshake()  throws Exception {
+    public void testCloneHTTPSBadHandshake() throws Exception {
 
         simpleHttpServer.stop();
         simpleHttpServer = new SimpleHttpServer(gitRepositoryService.getRepository(), true);
@@ -152,53 +140,74 @@ public class GitRepositoryServiceRemoteTest {
             gitRepositoryService.cloneRepository(
                     fromRepo,
                     clonedRepoPath,
-                    defaultUser,defaultPassword,
+                    defaultUser, defaultPassword,
                     null, null
             );
         } catch (TransportException te) {
-            assertTrue(te.getMessage().contains("could not be established because of SSL problems"));
+            assertTrue(te.getMessage().contains(Const.Msg.TRANSPORT_SSL_ISSUE));
         } catch (GitAPIException e) {
             assertEquals("Not, expected", e.getMessage());
         }
     }
 
     @Test
-    public void testCloneNoCredentialsProvider()  {
+    public void testCloneNoCredentialsProvider() {
         try {
             gitRepositoryService.cloneRepository(
                     fromRepo,
                     clonedRepoPath,
-                    null,null,
+                    null, null,
                     null, null
             );
             assertTrue(false);
         } catch (TransportException te) {
-            assertTrue(te.getMessage().contains("Authentication is required but no CredentialsProvider has been registered"));
-        } catch (GitAPIException e) {
+            assertTrue(te.getMessage().contains(Const.Msg.TRANSPORT_CRED_PROVIDER_ISSUE));
+        } catch (Exception e) {
             assertEquals("Not, expected", e.getMessage());
         }
     }
 
 
     @Test
-    public void testCloneNoWrongCredentials()  {
+    public void testCloneNoWrongCredentials() {
         try {
             gitRepositoryService.cloneRepository(
                     fromRepo,
                     clonedRepoPath,
-                    "any","wrong",
+                    "any", "wrong",
                     null, null
             );
             assertTrue(false);
         } catch (TransportException te) {
-            assertTrue(te.getMessage().contains("not authorized"));
-        } catch (GitAPIException e) {
+            assertTrue(te.getMessage().contains(Const.Msg.TRANSPORT_CRED_WRONG_ISSUE));
+        } catch (Exception e) {
             assertEquals("Not, expected", e.getMessage());
         }
     }
 
+    @Test
+    public void testRemoteRepositoryPush() throws Exception {
 
+        testClone();
 
+        Files.write(Paths.get(clonedRepoPath, MORE_FILE0),
+                "test file 0 to br1".getBytes(), StandardOpenOption.CREATE);
+
+        GitRepositoryService cloned = new GitRepositoryService(
+                Paths.get(tmpGitProject, ".git").toString()
+        );
+
+        cloned.addFileToCommitStage(
+                Paths.get(MORE_FILE0).toString()
+        );
+
+        cloned.commit("File 0 added");
+
+        cloned.remoteRepositoryPush(
+
+        )
+
+    }
 
 
 }

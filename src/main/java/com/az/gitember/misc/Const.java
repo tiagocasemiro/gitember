@@ -39,6 +39,19 @@ public interface Const {
     int ALERT_WIDTH = 600;
 
 
+    interface Msg {
+        String TRANSPORT_SSL_ISSUE = "could not be established because of SSL problems";
+        String TRANSPORT_CRED_PROVIDER_ISSUE = "Authentication is required but no CredentialsProvider has been registered";
+        String TRANSPORT_CRED_WRONG_ISSUE = "not authorized";
+    }
+
+    interface Config {
+        String HOME = "home";
+        String HTTP = "http";
+        String SLL_VERIFY = "sslVerify";
+    }
+
+
 
 
 }

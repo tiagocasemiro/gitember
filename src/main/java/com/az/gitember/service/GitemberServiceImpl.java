@@ -346,7 +346,8 @@ public class GitemberServiceImpl {
                 protected Result call()  {
                     return remoteRepositoryOperation(
                             () -> gitRepositoryService.remoteRepositoryPush(
-                                    repositoryLoginInfo, refSpec,
+                                    refSpec,
+                                    repositoryLoginInfo.getUserName(), repositoryLoginInfo.getProxyPassword(),
                                     new DefaultProgressMonitor((t, d) -> {
                                         updateTitle(t);
                                         updateProgress(d, 1.0);
@@ -438,7 +439,8 @@ public class GitemberServiceImpl {
                     protected Result call() {
                         return remoteRepositoryOperation(
                                 () -> gitRepositoryService.remoteRepositoryPush(
-                                        repositoryLoginInfo,  refSpec,
+                                        refSpec,
+                                        repositoryLoginInfo.getUserName(), repositoryLoginInfo.getProxyPassword(),
                                         new DefaultProgressMonitor((t, d) -> {
                                             updateTitle(t);
                                             updateProgress(d, 1.0);
@@ -470,8 +472,8 @@ public class GitemberServiceImpl {
                 //remoteRepositoryPull
                 final Result operationValue = remoteRepositoryOperation(
                         () -> gitRepositoryService.remoteRepositoryPush(
-                                repositoryLoginInfo,
                                 refSpec,
+                                repositoryLoginInfo.getUserName(), repositoryLoginInfo.getProxyPassword(),
                                 new DefaultProgressMonitor((t, d) -> {
                                     updateTitle(t);
                                     updateProgress(d, 1.0);
@@ -663,12 +665,20 @@ public class GitemberServiceImpl {
             @Override
             protected Result call()  {
                 return remoteRepositoryOperation(
-                        () -> gitRepositoryService.remoteRepositoryFetch(
-                                repositoryLoginInfo, branchName,
-                                new DefaultProgressMonitor((t, d) -> {
-                                    updateTitle(t);
-                                    updateProgress(d, 1.0);
-                                }))
+                        () -> {
+                            try {
+                                return gitRepositoryService.remoteRepositoryFetch(
+                                        branchName,
+                                        repositoryLoginInfo.getUserName(), repositoryLoginInfo.getProxyPassword(),
+                                        new DefaultProgressMonitor((t, d) -> {
+                                            updateTitle(t);
+                                            updateProgress(d, 1.0);
+                                        }));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                return null;
+                            }
+                        }
                 );
             }
         };
@@ -775,7 +785,7 @@ public class GitemberServiceImpl {
                                                 updateProgress(d, 1.0);
                                             })
                                     );
-                                } catch (GitAPIException e) {
+                                } catch (Exception e) {
                                     e.printStackTrace();
                                 }
                                 return null; //TODO fix

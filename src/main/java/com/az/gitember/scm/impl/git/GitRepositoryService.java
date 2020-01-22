@@ -9,6 +9,7 @@ import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.UserInfo;
 import javafx.scene.control.Alert;
+import org.apache.commons.lang3.reflect.FieldUtils;
 import org.eclipse.jgit.api.*;
 import org.eclipse.jgit.api.errors.*;
 import org.eclipse.jgit.blame.BlameResult;
@@ -37,6 +38,7 @@ import org.eclipse.jgit.treewalk.filter.PathFilter;
 import org.eclipse.jgit.treewalk.filter.TreeFilter;
 import org.eclipse.jgit.util.FS;
 import org.eclipse.jgit.util.HttpSupport;
+import org.eclipse.jgit.util.SystemReader;
 import org.eclipse.jgit.util.io.DisabledOutputStream;
 
 import javax.net.ssl.SSLHandshakeException;
@@ -44,6 +46,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
@@ -65,7 +68,6 @@ public class GitRepositoryService {
     private final Repository repository;
 
     private final StoredConfig config;
-
 
 
     /**
@@ -115,7 +117,7 @@ public class GitRepositoryService {
                     readmeInitialContent.getBytes(), StandardOpenOption.CREATE);
             Files.write(
                     Paths.get(absPath + File.separator + ".gitignore"),
-                    "target/\nbuild/\n".getBytes(),  StandardOpenOption.CREATE);
+                    "target/\nbuild/\n".getBytes(), StandardOpenOption.CREATE);
         }
     }
 
@@ -152,7 +154,7 @@ public class GitRepositoryService {
     /**
      * Commit changes.
      *
-     * @param message                     commit message
+     * @param message commit message
      * @return result.
      * @throws GitAPIException in case of error
      */
@@ -170,6 +172,7 @@ public class GitRepositoryService {
 
     /**
      * Get all files in head
+     *
      * @return all files in head
      * @throws IOException in case of error
      */
@@ -179,6 +182,7 @@ public class GitRepositoryService {
 
     /**
      * Get all files in given name
+     *
      * @return all files in head
      * @throws IOException in case of error
      */
@@ -207,8 +211,9 @@ public class GitRepositoryService {
 
     /**
      * Create new branch.
+     *
      * @param parent from
-     * @param name new name
+     * @param name   new name
      * @return ref to new branch
      * @throws GEScmAPIException in case of error
      */
@@ -226,6 +231,7 @@ public class GitRepositoryService {
 
     /**
      * Delete local branch
+     *
      * @param name
      * @throws GECannotDeleteCurrentBranchException
      * @throws GEScmAPIException
@@ -273,8 +279,6 @@ public class GitRepositoryService {
     }
 
 
-
-
     /**
      * Merge two branches. The "to" must be checkouted.
      *
@@ -292,9 +296,7 @@ public class GitRepositoryService {
     }
 
     /**
-     *
-     * @param upstream
-     *            the name of the upstream branch
+     * @param upstream the name of the upstream branch
      * @return
      * @throws Exception
      */
@@ -345,8 +347,6 @@ public class GitRepositoryService {
             return new Result(Result.Code.ERROR, e.getMessage());
         }*/
     }
-
-
 
 
     /**
@@ -501,6 +501,7 @@ public class GitRepositoryService {
 
     /**
      * Revert changes or reolve conflict
+     *
      * @param fileName file name
      * @param stage
      */
@@ -519,8 +520,6 @@ public class GitRepositoryService {
             }
         }
     }
-
-
 
 
     /**
@@ -567,6 +566,7 @@ public class GitRepositoryService {
 
     /**
      * Get list of remove branches.
+     *
      * @return list
      */
     public List<ScmBranch> getRemoteBranches() {
@@ -602,12 +602,13 @@ public class GitRepositoryService {
     }
 
     public static void cleanUpTempFiles() {
-        tempFiles.forEach( f -> {  if(f.exists()) f.delete();  } );
+        tempFiles.forEach(f -> {
+            if (f.exists()) f.delete();
+        });
     }
 
 
     /**
-     *
      * @param defaultProgressMonitor optional
      * @return
      */
@@ -633,11 +634,7 @@ public class GitRepositoryService {
     }
 
 
-
-
-
     /**
-     *
      * @param files
      * @param progressMonitor
      * @return
@@ -783,8 +780,9 @@ public class GitRepositoryService {
     /**
      * Get revisions to visualize. Fr more detail look at
      * https://stackoverflow.com/questions/12691633/jgit-get-all-commits-plotcommitlist-that-affected-a-file-path
+     *
      * @param treeName trhee name
-     * @param all to visualize with merges
+     * @param all      to visualize with merges
      * @return PlotCommitList<PlotLane>
      * @throws Exception
      */
@@ -794,7 +792,7 @@ public class GitRepositoryService {
 
             final RevCommit root = revWalk.parseCommit(rootId);
             revWalk.markStart(root);
-            if(all) {
+            if (all) {
                 revWalk.setTreeFilter(TreeFilter.ALL);
                 Collection<Ref> allRefs = repository.getAllRefs().values();
                 for (Ref ref : allRefs) {
@@ -817,16 +815,199 @@ public class GitRepositoryService {
 
     }
 
+    //----------------------------------- Remote section ---------------------------------
+
+    /**
+     * Clone remote repository.
+     *
+     * @param reporitoryUrl repo url
+     * @param folder        optional folder where store cloned repository
+     * @param userName      optional user name
+     * @param password      optional password
+     */
+    public Result cloneRepository(final String reporitoryUrl, final String folder,
+                                  final String userName, final String password,
+                                  final String pathToKey,
+                                  final ProgressMonitor progressMonitor) throws Exception {
+
+        final CloneCommand cmd = Git.cloneRepository()
+                .setURI(reporitoryUrl)
+                .setDirectory(new File(folder))
+                .setCloneAllBranches(true)
+                .setCloneSubmodules(true)
+                .setProgressMonitor(progressMonitor);
+        configureCredentialProvider(cmd, userName, password);
+
+        try (Git result = cmd.call()) {
+            String rez = result.getRepository().getDirectory().getAbsolutePath();
+            return new Result(rez);
+        } catch (TransportException te) {
+            if (te.getMessage().contains(Const.Msg.TRANSPORT_SSL_ISSUE)) {
+                StoredConfig fbcOrig = SystemReader.getInstance().getUserConfig();
+                fbcOrig.setBoolean(Const.Config.HTTP, null, Const.Config.SLL_VERIFY, false);
+                fbcOrig.save();
+                return cloneRepository(
+                        reporitoryUrl, folder,
+                        userName, password,
+                        pathToKey,
+                        progressMonitor
+                );
+            } else {
+                log.log(Level.WARNING,
+                        MessageFormat.format("Clone {0} error {1}", reporitoryUrl, te.getMessage()));
+                throw te;
+            }
+        } catch (Exception e) {
+            log.log(Level.WARNING,
+                    MessageFormat.format("Repo {0} not cloned. Error {1}", reporitoryUrl, e.getMessage()));
+            return new Result(Result.Code.ERROR, e.getMessage());
+        }
+    }
+
+    /**
+     * Fetch all or particular branch.
+     * <p>
+     * //http://stackoverflow.com/questions/16319807/determine-if-a-branch-is-remote-or-local-using-jgit
+     * //http://stackoverflow.com/questions/12927163/jgit-checkout-a-remote-branch
+     *
+     * @param shortRemoteBranch optional short name on remote repo,
+     *                          i.e. without ref/heads/ prefix, if not provided command will fetch all
+     * @param progressMonitor   optional progress
+     * @return result of operation
+     */
+    public Result remoteRepositoryFetch(final String shortRemoteBranch,
+                                        final String userName, final String password,
+                                        final ProgressMonitor progressMonitor) throws Exception {
+
+        try (Git git = new Git(repository)) {
+
+            final FetchCommand cmd = git
+                    .fetch()
+                    .setCheckFetchedObjects(true)
+                    .setProgressMonitor(progressMonitor);
+
+            configureCredentialProvider(cmd, userName, password);
+
+            final String msg;
+            if (shortRemoteBranch == null) {
+                msg = MessageFormat.format("Fetch  all, for user {1}", userName);
+            } else {
+                msg = MessageFormat.format("Fetch {0} , for user {1}", shortRemoteBranch, userName);
+                cmd.setRefSpecs(new RefSpec(Constants.R_HEADS + shortRemoteBranch));
+            }
+            log.log(Level.INFO, msg);
+            final FetchResult fetchResult = cmd.call();
+            String rezMsg = fetchResult.getTrackingRefUpdates()
+                    .stream()
+                    .map(tr -> tr.getResult().toString())
+                    .collect(Collectors.joining("\n"));
+            return new Result(rezMsg);
+        } catch (TransportException te) {
+            if (te.getMessage().contains(Const.Msg.TRANSPORT_SSL_ISSUE)) {
+
+                try (Git g = new Git(repository)) {
+                    StoredConfig fbcOrig = g.getRepository().getConfig();
+                    fbcOrig.setBoolean(Const.Config.HTTP, null, Const.Config.SLL_VERIFY, false);
+                    fbcOrig.save();
+                }
+
+                return remoteRepositoryFetch(
+                        shortRemoteBranch,
+                        userName, password,
+                        progressMonitor
+                );
+            } else {
+                log.log(Level.WARNING,
+                        MessageFormat.format("Fetch {0} error {1}", shortRemoteBranch, te.getMessage()));
+                return new Result(Result.Code.ERROR, te.getMessage());
+            }
+        } catch (CheckoutConflictException conflictException) {
+            return new Result(
+                    Result.Code.ERROR,
+                    "Fetch conflict error "
+                            + conflictException.getConflictingPaths()
+                            .stream()
+                            .collect(Collectors.joining("\n"))
+
+            );
+        } catch (Exception e) {
+            log.log(Level.WARNING,
+                    MessageFormat.format("Not fetched {0} ", e.getMessage()));
+            return new Result(Result.Code.ERROR, e.getMessage());
+        }
+
+    }
+
+
+    public Result remoteRepositoryPush(final RefSpec refSpec,
+                                       final String userName, final String password,
+                                       final ProgressMonitor progressMonitor) {
+        try (Git git = new Git(repository)) {
+
+            final String projectRemoteUrl = git.getRepository()
+                    .getConfig()
+                    .getString("remote", "origin", "url");
+
+            final PushCommand pushCommand = git.push()
+                    .setRefSpecs(refSpec)
+                    .setProgressMonitor(progressMonitor)
+                    .setRemote(projectRemoteUrl);
+
+            configureCredentialProvider(pushCommand, userName, password);
+
+
+            /*if (refSpec != null && refSpec.getDestination() != null
+                    && refSpec.getDestination().contains("refs/tags/")) {
+                pushCommand.setPushTags().setRefSpecs(refSpec);
+            }*/ // ????????
+
+            log.log(Level.INFO,"Pushing " + pushCommand  + " ref: " + refSpec);
+
+            Iterable<PushResult> pushResults = pushCommand.call();
+            StringBuilder stringBuilder = new StringBuilder();
+            pushResults.forEach(
+                    pushResult -> {
+                        String rezInfo = pushResult.getMessages(); // "";//todo
+                        stringBuilder.append(rezInfo);
+                        log.log(Level.INFO,
+                                "Pushed " + pushResult.getMessages() + " " + pushResult.getURI()
+                                        + " updates: " + pushResult.getRemoteUpdates());
+                    }
+            );
+            return new Result(stringBuilder.toString());
+        } catch (TransportException te) {
+            if (te.getCause() != null //todo check clone and fetch
+                    && te.getCause().getCause() != null
+                    && te.getCause().getCause().getClass().equals(SSLHandshakeException.class)) {
+                try (Git git = new Git(repository)) {
+                    final StoredConfig config = git.getRepository().getConfig();
+                    config.setBoolean("http", null, "sslVerify", false);
+                    config.save();
+                    return remoteRepositoryPush(refSpec, userName, password, progressMonitor);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    return new Result(Result.Code.ERROR, e.getMessage());
+                }
+            } else {
+                return new Result(Result.Code.ERROR, te.getMessage());
+            }
+        } catch (Exception e) {
+            log.log(Level.WARNING,
+                    MessageFormat.format("Not fetched {0} ", e.getMessage()));
+            return new Result(Result.Code.ERROR, e.getMessage());
+        }
+    }
+
+    private void configureCredentialProvider(final TransportCommand cmd,
+                                             final String userName, final String password) {
+        if (userName != null) {
+            cmd.setCredentialsProvider(
+                    new UsernamePasswordCredentialsProvider(userName, password)
+            );
+        }
+    }
+
     //-------------------------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
 
 
     /**
@@ -954,78 +1135,6 @@ public class GitRepositoryService {
     }
 
 
-
-
-
-
-
-
-
-    /**
-     * Clone remote repository.
-     *
-     * @param reporitoryUrl repo url
-     * @param folder        optional folder where store cloned repository
-     * @param userName      optional user name
-     * @param password      optional password
-     */
-    public Result cloneRepository(final String reporitoryUrl, final String folder,
-                                  final String userName, final String password,
-                                  final String pathToKey,
-                                  final ProgressMonitor progressMonitor) throws GitAPIException {
-
-        final CloneCommand cmd = Git.cloneRepository()
-                .setURI(reporitoryUrl)
-                .setDirectory(new File(folder))
-                .setCloneAllBranches(true)
-                .setCloneSubmodules(true)
-                .setTransportConfigCallback(
-                        transport -> {
-                            if (transport instanceof TransportHttp) {
-                                TransportHttp myTransport = (TransportHttp)transport;
-                                myTransport.applyConfig(null);
-                            }
-                        }
-                )
-                .setProgressMonitor(progressMonitor);
-        //cmd.getRepository().getConfig().setBoolean("http", null, "sslVerify", false);
-
-        /*if (reporitoryUrl.startsWith("git@")) {
-            JschConfigSessionFactory sshSessionFactory = createSshSessionFactory(password, pathToKey);
-            cmd.setTransportConfigCallback(transport -> {
-                SshTransport sshTransport = (SshTransport) transport;
-                sshTransport.setSshSessionFactory(sshSessionFactory);
-            });
-        }*/
-
-        if (userName != null) {
-            cmd.setCredentialsProvider(
-                    new UsernamePasswordCredentialsProvider(userName, password)
-            );
-        }
-
-        try (Git result = cmd.call()) {
-            String rez = result.getRepository().getDirectory().getAbsolutePath();
-            return new Result(rez);
-
-        }
-
-        //try {
-
-        /*} catch (TransportException te) {
-            if (te.getCause() != null && te.getCause().getCause() != null
-                    && te.getCause().getCause().getClass().equals(SSLHandshakeException.class)) {
-                return fetchRepository(reporitoryUrl, folder, userName, password, progressMonitor);
-            } else {
-                return processError(te);
-            }*/
-        /*} catch (Exception e) {
-            return processError(e);
-        }*/
-
-    }
-
-
     private JschConfigSessionFactory createSshSessionFactory(final String password, final String pathToKey) {
         return new JschConfigSessionFactory() {
 
@@ -1081,7 +1190,7 @@ public class GitRepositoryService {
             } else if (e.getMessage().contains("USERAUTH fail") || e.getMessage().contains("Auth fail")) {
                 log.log(Level.INFO, e.getMessage());
                 return new Result(Result.Code.GIT_AUTH_REQUIRED, e.getMessage());
-            } else if (e.getMessage().contains("not authorized")) {
+            } else if (e.getMessage().contains(Const.Msg.TRANSPORT_CRED_WRONG_ISSUE)) {
                 log.log(Level.INFO, e.getMessage());
                 return new Result(Result.Code.NOT_AUTHORIZED, e.getMessage());
             } else if (e.getMessage().contains("remote end: unpack-objects")) {
@@ -1102,49 +1211,6 @@ public class GitRepositoryService {
 
 
     /**
-     * Fetch all or particular branch.
-     * <p>
-     * //http://stackoverflow.com/questions/16319807/determine-if-a-branch-is-remote-or-local-using-jgit
-     * //http://stackoverflow.com/questions/12927163/jgit-checkout-a-remote-branch
-     *
-     * @param shortRemoteBranch optional short name on remote repo, i.e. without ref/heads/ prefix, if not provided command will fetch all
-     * @param progressMonitor   optional progress
-     * @return result of operation
-     */
-    public Result remoteRepositoryFetch(final GitemberProjectSettings repoInfo,
-                                        final String shortRemoteBranch,
-                                        final ProgressMonitor progressMonitor) {
-        log.log(Level.INFO,
-                MessageFormat.format("Fetch {0} null means all, for user {1}", shortRemoteBranch, repoInfo.getUserName()));
-
-        try (Git git = new Git(repository)) {
-            final FetchCommand fetchCommand = git
-                    .fetch()
-                    .setCheckFetchedObjects(true)
-                    .setProgressMonitor(progressMonitor);
-            if (shortRemoteBranch != null) {
-                fetchCommand.setRefSpecs(new RefSpec(Constants.R_HEADS + shortRemoteBranch));
-            }
-
-            configureTransportCommand(fetchCommand, repoInfo);
-
-
-            FetchResult fetchResult = fetchCommand.call();
-            if (fetchResult.getTrackingRefUpdates().isEmpty()) {
-                return new Result("Nothing changed");
-            }
-            return new Result(
-                    MessageFormat.format("Found {0} refs to process.", fetchResult.getTrackingRefUpdates().size()));
-        } catch (CheckoutConflictException conflictException) {
-            return new Result(
-                    Result.Code.ERROR, "Fetch conflict error" + conflictException.getMessage());
-        } catch (GitAPIException e) {
-            return processError(e);
-        }
-
-    }
-
-    /**
      * Pull changes.
      *
      * @param repoInfo repoInfo
@@ -1154,8 +1220,8 @@ public class GitRepositoryService {
     public Result remoteRepositoryPull(final String shortRemoteBranch,
                                        final GitemberProjectSettings repoInfo,
                                        final ProgressMonitor progressMonitor,
-                                       final boolean processExeption ) {
-        log.log(Level.INFO,  MessageFormat.format("Pull {0} ", shortRemoteBranch));
+                                       final boolean processExeption) {
+        log.log(Level.INFO, MessageFormat.format("Pull {0} ", shortRemoteBranch));
 
         try (Git git = new Git(repository)) {
 
@@ -1217,9 +1283,6 @@ public class GitRepositoryService {
             return processError(e);
         }
     }
-
-
-
 
 
     private void checkout(Repository clonedRepo, FetchResult result)
@@ -1293,19 +1356,18 @@ public class GitRepositoryService {
     }
 
 
-
     /**
      * Set track remote branch
      * TODO support ssh http://www.codeaffine.com/2014/12/09/jgit-authentication/
      * Additional info  http://stackoverflow.com/questions/13446842/how-do-i-do-git-push-with-jgit
      * git push origin remotepush:r-remotepush
      *
-     * @param localBranch    local branch name
-     * @param remoteBranch   remote branch name
+     * @param localBranch  local branch name
+     * @param remoteBranch remote branch name
      * @return
      * @throws Exception in case of error
      */
-    public void  trackRemote(GitemberProjectSettings repoInfo, String localBranch, String remoteBranch) {
+    public void trackRemote(GitemberProjectSettings repoInfo, String localBranch, String remoteBranch) {
         try (Git git = new Git(repository)) {
             final StoredConfig config = git.getRepository().getConfig();
             config.setString(ConfigConstants.CONFIG_BRANCH_SECTION, localBranch,
@@ -1317,70 +1379,6 @@ public class GitRepositoryService {
             log.log(Level.WARNING, "Cannot track remote branch", e);
         }
     }
-
-    public Result remoteRepositoryPush(GitemberProjectSettings repoInfo,
-                                       RefSpec refSpec,
-                                       ProgressMonitor progressMonitor
-                                                      ) {
-        try (Git git = new Git(repository)) {
-
-            final PushCommand pushCommand = git.push().setRefSpecs(refSpec);
-            if(progressMonitor != null) {
-                pushCommand.setProgressMonitor(progressMonitor);
-            }
-
-            configureTransportCommand(pushCommand, repoInfo);
-            pushCommand.setRemote(repoInfo.getProjectRemoteUrl());
-            //todo message !!!!!!!!!!!!!!!!1
-
-
-
-            StoredConfig config = repository.getConfig();
-            String ru = config.getString("remote", "origin", "url");
-
-
-
-
-            if (refSpec != null && refSpec.getDestination() != null && refSpec.getDestination().contains("refs/tags/")) {
-                pushCommand.setPushTags().setRefSpecs(refSpec);
-            }
-
-            log.log(Level.INFO,
-                    "Pushing " + pushCommand + " " +repoInfo
-                            + " ref: " + refSpec + " url " + ru);
-
-            Iterable<PushResult> pushResults = pushCommand.call();
-            StringBuilder stringBuilder = new StringBuilder();
-            pushResults.forEach(
-                    pushResult -> {
-                        String rezInfo = pushResult.getMessages();// "";//todo
-                        stringBuilder.append(rezInfo);
-                        log.log(Level.INFO,
-                                "Pushed " + pushResult.getMessages() + " " + pushResult.getURI()
-                                        + " updates: " + pushResult.getRemoteUpdates());
-                    }
-            );
-            return new Result(stringBuilder.toString());
-        } catch (TransportException te) {
-            if (te.getCause() != null && te.getCause().getCause() != null
-                    && te.getCause().getCause().getClass().equals(SSLHandshakeException.class)) {
-                try (Git git = new Git(repository)) {
-                    log.log(Level.INFO, "Add ssl ignore to " + repository.getDirectory().getAbsolutePath());
-                    final StoredConfig config = git.getRepository().getConfig();
-                    config.setBoolean("http", null, "sslVerify", false);
-                    config.save();
-                    return remoteRepositoryPush( repoInfo, refSpec,  progressMonitor);
-                } catch (IOException e) {
-                    return processError(e);
-                }
-            } else {
-                return processError(te);
-            }
-        } catch (Exception e) {
-            return processError(e);
-        }
-    }
-
 
 
 
@@ -1458,8 +1456,6 @@ public class GitRepositoryService {
         return temp.getAbsolutePath();
 
     }
-
-
 
 
     //------------------------ privates --------------------------

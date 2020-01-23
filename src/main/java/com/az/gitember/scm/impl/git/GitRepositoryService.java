@@ -82,6 +82,8 @@ public class GitRepositoryService {
         this.repository = GitUtil.openRepository(gitFolder);
         this.config = repository.getConfig();
 
+
+
         /*
         String userName = config.getString(ConfigConstants.CONFIG_USER_SECTION, null, ConfigConstants.CONFIG_KEY_NAME);
         String userEMail = config.getString(ConfigConstants.CONFIG_USER_SECTION, null, ConfigConstants.CONFIG_KEY_EMAIL);
@@ -96,6 +98,12 @@ public class GitRepositoryService {
 
     Repository getRepository() {
         return repository;
+    }
+
+    public void shutdown() {
+        if (repository != null) {
+            repository.close();
+        }
     }
 
     /**
@@ -189,6 +197,7 @@ public class GitRepositoryService {
     public Set<String> getAllFiles(String name) throws IOException {
         final Set<String> rez = new TreeSet<>();
 
+        //repository.getRefDatabase().getRefs()
         final Ref head = repository.exactRef(name);
         final RevWalk walk = new RevWalk(repository);
         final RevCommit commit = walk.parseCommit(head.getObjectId());
@@ -870,12 +879,13 @@ public class GitRepositoryService {
      * //http://stackoverflow.com/questions/16319807/determine-if-a-branch-is-remote-or-local-using-jgit
      * //http://stackoverflow.com/questions/12927163/jgit-checkout-a-remote-branch
      *
-     * @param shortRemoteBranch optional short name on remote repo,
+     * @param remoteBranch optional short name on remote repo,
      *                          i.e. without ref/heads/ prefix, if not provided command will fetch all
      * @param progressMonitor   optional progress
      * @return result of operation
+     * todo is srorn name or long need to use ?
      */
-    public Result remoteRepositoryFetch(final String shortRemoteBranch,
+    public Result remoteRepositoryFetch(final String remoteBranch,
                                         final String userName, final String password,
                                         final ProgressMonitor progressMonitor) throws Exception {
 
@@ -889,18 +899,22 @@ public class GitRepositoryService {
             configureCredentialProvider(cmd, userName, password);
 
             final String msg;
-            if (shortRemoteBranch == null) {
-                msg = MessageFormat.format("Fetch  all, for user {1}", userName);
+            if (remoteBranch == null) {
+                msg = String.format("Fetch  all, for user %s", userName);
             } else {
-                msg = MessageFormat.format("Fetch {0} , for user {1}", shortRemoteBranch, userName);
-                cmd.setRefSpecs(new RefSpec(Constants.R_HEADS + shortRemoteBranch));
+                msg = String.format("Fetch %s , for user %s", remoteBranch, userName);
+                cmd.setRefSpecs(new RefSpec(remoteBranch)); //Constants.R_HEADS +
             }
             log.log(Level.INFO, msg);
             final FetchResult fetchResult = cmd.call();
             String rezMsg = fetchResult.getTrackingRefUpdates()
                     .stream()
-                    .map(tr -> tr.getResult().toString())
+                    .map(tr -> String.format("%s local %s remote %s", tr.getResult().toString(), tr.getLocalName(), tr.getRemoteName())  )
                     .collect(Collectors.joining("\n"));
+
+            fetchResult.submoduleResults()
+
+
             return new Result(rezMsg);
         } catch (TransportException te) {
             if (te.getMessage().contains(Const.Msg.TRANSPORT_SSL_ISSUE)) {
@@ -912,13 +926,13 @@ public class GitRepositoryService {
                 }
 
                 return remoteRepositoryFetch(
-                        shortRemoteBranch,
+                        remoteBranch,
                         userName, password,
                         progressMonitor
                 );
             } else {
                 log.log(Level.WARNING,
-                        MessageFormat.format("Fetch {0} error {1}", shortRemoteBranch, te.getMessage()));
+                        MessageFormat.format("Fetch {0} error {1}", remoteBranch, te.getMessage()));
                 return new Result(Result.Code.ERROR, te.getMessage());
             }
         } catch (CheckoutConflictException conflictException) {
@@ -956,12 +970,14 @@ public class GitRepositoryService {
             configureCredentialProvider(pushCommand, userName, password);
 
 
-            /*if (refSpec != null && refSpec.getDestination() != null
+            /*
+            todo taggs
+             if (refSpec != null && refSpec.getDestination() != null
                     && refSpec.getDestination().contains("refs/tags/")) {
                 pushCommand.setPushTags().setRefSpecs(refSpec);
             }*/ // ????????
 
-            log.log(Level.INFO,"Pushing " + pushCommand  + " ref: " + refSpec);
+            log.log(Level.INFO,"Pushing to " + projectRemoteUrl  + " ref: " + refSpec);
 
             Iterable<PushResult> pushResults = pushCommand.call();
             StringBuilder stringBuilder = new StringBuilder();

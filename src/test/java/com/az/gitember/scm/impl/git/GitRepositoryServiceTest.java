@@ -50,6 +50,7 @@ public class GitRepositoryServiceTest {
 
     @After
     public void tearDown() throws Exception {
+        gitRepositoryService.shutdown();
         FileUtils.deleteDirectory(new File(tmpGitProject));
     }
 

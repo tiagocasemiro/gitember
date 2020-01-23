@@ -2,52 +2,50 @@ package com.az.gitember.scm.impl.git;
 
 
 import com.az.gitember.misc.*;
-import com.az.gitember.scm.exception.GECannotDeleteCurrentBranchException;
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.apache.commons.io.FileUtils;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.TransportException;
 import org.eclipse.jgit.dircache.DirCache;
 import org.eclipse.jgit.junit.http.SimpleHttpServer;
-import org.eclipse.jgit.lib.ConfigConstants;
-import org.eclipse.jgit.lib.Constants;
-import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.StoredConfig;
-import org.eclipse.jgit.revwalk.RevCommit;
-import org.eclipse.jgit.storage.file.FileBasedConfig;
-import org.eclipse.jgit.transport.HttpTransport;
-import org.eclipse.jgit.transport.http.HttpConnectionFactory;
-import org.eclipse.jgit.util.FS;
+import org.eclipse.jgit.transport.RefSpec;
 import org.eclipse.jgit.util.SystemReader;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.List;
 
 import static org.junit.Assert.*;
 
+@RunWith(JUnitParamsRunner.class)
 public class GitRepositoryServiceRemoteTest {
 
     private static String MORE_FILE0 = "file0.txt";
     private static String README_FILE = "README.md";
     private static String IGNORE_FILE = ".gitignore";
 
-    private static String FN_BR1 = "refs/heads/br1";
+    private static String RN_RBR1 = "refs/remotes/origin/rbr1";
+    private static String FN_RBR1 = "refs/heads/rbr1";
     private static String FN_MASTER = "refs/heads/master";
 
-    private String tmpGitProject = null;
-    private Path tmpGitProjectPath = null;
-    private GitRepositoryService gitRepositoryService;
+    private String remoteGitProject = null;
+    private Path remoteGitProjectPath = null;
+    private GitRepositoryService remoteRepositoryService;
 
     private SimpleHttpServer simpleHttpServer;
 
     private String clonedRepoPath;
+    private GitRepositoryService clonedRepositoryService;
+
     private String fromRepo;
     private String defaultUser = "agitter";
     private String defaultPassword = "letmein";
@@ -55,33 +53,36 @@ public class GitRepositoryServiceRemoteTest {
 
     @Before
     public void setUp() throws Exception {
-        tmpGitProjectPath = Files.createTempDirectory("tmpgitember");
-        tmpGitProject = tmpGitProjectPath.toAbsolutePath().toString();
-        GitRepositoryService.createRepository(tmpGitProject);
-        gitRepositoryService = new GitRepositoryService(
-                Paths.get(tmpGitProject, ".git").toString()
+        remoteGitProjectPath = Files.createTempDirectory("gitember-remote");
+        remoteGitProject = remoteGitProjectPath.toAbsolutePath().toString();
+        GitRepositoryService.createRepository(remoteGitProject);
+        remoteRepositoryService = new GitRepositoryService(
+                Paths.get(remoteGitProject, ".git").toString()
         );
-        gitRepositoryService.addFileToCommitStage(README_FILE);
-        gitRepositoryService.addFileToCommitStage(IGNORE_FILE);
-        gitRepositoryService.commit("Remote commit 1");
+        remoteRepositoryService.addFileToCommitStage(README_FILE);
+        remoteRepositoryService.addFileToCommitStage(IGNORE_FILE);
+        remoteRepositoryService.commit("Remote commit 1");
 
-        simpleHttpServer = new SimpleHttpServer(gitRepositoryService.getRepository());
+        simpleHttpServer = new SimpleHttpServer(remoteRepositoryService.getRepository());
         simpleHttpServer.start();
 
         clonedRepoPath = Files.createTempDirectory("gitember-cloned").toString();
+        clonedRepositoryService = new GitRepositoryService(  Paths.get(clonedRepoPath, ".git").toString() );
         fromRepo = simpleHttpServer.getUri().toString();
     }
 
     @After
     public void tearDown() throws Exception {
         simpleHttpServer.stop();
-        FileUtils.deleteDirectory(new File(tmpGitProject));
+        remoteRepositoryService.shutdown();
+        clonedRepositoryService.shutdown();
+        FileUtils.deleteDirectory(new File(remoteGitProject));
         FileUtils.deleteDirectory(new File(clonedRepoPath));
     }
 
     @Test
     public void testClone() throws Exception {
-        gitRepositoryService.cloneRepository(
+        remoteRepositoryService.cloneRepository(
                 fromRepo,
                 clonedRepoPath,
                 defaultUser, defaultPassword,
@@ -97,7 +98,7 @@ public class GitRepositoryServiceRemoteTest {
 
         // restart http server with https support
         simpleHttpServer.stop();
-        simpleHttpServer = new SimpleHttpServer(gitRepositoryService.getRepository(), true);
+        simpleHttpServer = new SimpleHttpServer(remoteRepositoryService.getRepository(), true);
         simpleHttpServer.start();
 
 
@@ -111,7 +112,7 @@ public class GitRepositoryServiceRemoteTest {
 
         try {
 
-            gitRepositoryService.cloneRepository(
+            remoteRepositoryService.cloneRepository(
                     fromRepo,
                     clonedRepoPath,
                     defaultUser, defaultPassword,
@@ -131,13 +132,13 @@ public class GitRepositoryServiceRemoteTest {
     public void testCloneHTTPSBadHandshake() throws Exception {
 
         simpleHttpServer.stop();
-        simpleHttpServer = new SimpleHttpServer(gitRepositoryService.getRepository(), true);
+        simpleHttpServer = new SimpleHttpServer(remoteRepositoryService.getRepository(), true);
         simpleHttpServer.start();
 
         fromRepo = simpleHttpServer.getSecureUri().toString();
 
         try {
-            gitRepositoryService.cloneRepository(
+            remoteRepositoryService.cloneRepository(
                     fromRepo,
                     clonedRepoPath,
                     defaultUser, defaultPassword,
@@ -153,7 +154,7 @@ public class GitRepositoryServiceRemoteTest {
     @Test
     public void testCloneNoCredentialsProvider() {
         try {
-            gitRepositoryService.cloneRepository(
+            remoteRepositoryService.cloneRepository(
                     fromRepo,
                     clonedRepoPath,
                     null, null,
@@ -171,7 +172,7 @@ public class GitRepositoryServiceRemoteTest {
     @Test
     public void testCloneNoWrongCredentials() {
         try {
-            gitRepositoryService.cloneRepository(
+            remoteRepositoryService.cloneRepository(
                     fromRepo,
                     clonedRepoPath,
                     "any", "wrong",
@@ -185,6 +186,47 @@ public class GitRepositoryServiceRemoteTest {
         }
     }
 
+
+    private static Object[] fetchParams() {
+        return new Object[]{
+                //new Object[]{null, 3},
+                new Object[]{"refs/heads/rbr1", 3},
+        };
+    }
+
+    @Parameters(method = "fetchParams")
+    @Test
+    public void testRemoteRepositoryFetch(final String remoteBranch, final int expectedFiles) throws Exception {
+
+        testRemoteRepositoryPush();
+
+        Result rez = clonedRepositoryService.remoteRepositoryFetch(
+                remoteBranch,
+                defaultUser,defaultPassword,
+                null
+        );
+
+        assertEquals(Result.Code.OK, rez.getCode());
+        assertEquals(expectedFiles, clonedRepositoryService.getAllFiles(RN_RBR1).size());
+
+
+        //"refs/remotes/origin/rbr1";
+        //private static String FN_RBR1 = "refs/heads/rbr1";
+
+                /*
+
+
+
+        //all "+refs/heads/*","refs/heads/*"
+        specs.add(new RefSpec("+refs/heads/*:refs/remotes/origin/*"));
+            specs.add(new RefSpec("+refs/tags/*:refs/tags/*"));
+            specs.add(new RefSpec("+refs/notes/*:refs/notes/*"));
+
+        //assertTrue(false);
+*/
+
+    }
+
     @Test
     public void testRemoteRepositoryPush() throws Exception {
 
@@ -193,19 +235,23 @@ public class GitRepositoryServiceRemoteTest {
         Files.write(Paths.get(clonedRepoPath, MORE_FILE0),
                 "test file 0 to br1".getBytes(), StandardOpenOption.CREATE);
 
-        GitRepositoryService cloned = new GitRepositoryService(
-                Paths.get(tmpGitProject, ".git").toString()
+        DirCache dc = clonedRepositoryService.addFileToCommitStage( Paths.get(MORE_FILE0).toString() );
+
+        clonedRepositoryService.commit("File 0 added");
+
+        //local master to remote rbr1
+        RefSpec refSpec = new RefSpec(FN_MASTER + ":" + FN_RBR1);
+
+        Result rez = clonedRepositoryService.remoteRepositoryPush(
+                refSpec,
+                defaultUser, defaultPassword,
+                null
+
         );
+        assertEquals(Result.Code.OK, rez.getCode());
+        assertEquals(3, remoteRepositoryService.getAllFiles(FN_RBR1).size());
 
-        cloned.addFileToCommitStage(
-                Paths.get(MORE_FILE0).toString()
-        );
 
-        cloned.commit("File 0 added");
-
-        cloned.remoteRepositoryPush(
-
-        )
 
     }
 

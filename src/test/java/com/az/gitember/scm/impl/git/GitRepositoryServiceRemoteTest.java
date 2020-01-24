@@ -189,7 +189,7 @@ public class GitRepositoryServiceRemoteTest {
 
     private static Object[] fetchParams() {
         return new Object[]{
-                //new Object[]{null, 3},
+                new Object[]{null, 3},
                 new Object[]{"refs/heads/rbr1", 3},
         };
     }

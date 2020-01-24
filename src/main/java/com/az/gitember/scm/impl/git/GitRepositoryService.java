@@ -852,9 +852,7 @@ public class GitRepositoryService {
             return new Result(rez);
         } catch (TransportException te) {
             if (te.getMessage().contains(Const.Msg.TRANSPORT_SSL_ISSUE)) {
-                StoredConfig fbcOrig = SystemReader.getInstance().getUserConfig();
-                fbcOrig.setBoolean(Const.Config.HTTP, null, Const.Config.SLL_VERIFY, false);
-                fbcOrig.save();
+                configureSslChecks(SystemReader.getInstance().getUserConfig());
                 return cloneRepository(
                         reporitoryUrl, folder,
                         userName, password,
@@ -912,7 +910,10 @@ public class GitRepositoryService {
                     .map(tr -> String.format("%s local %s remote %s", tr.getResult().toString(), tr.getLocalName(), tr.getRemoteName())  )
                     .collect(Collectors.joining("\n"));
 
-            fetchResult.submoduleResults()
+            rezMsg += "Advertised" + fetchResult.getAdvertisedRefs()
+                    .stream()
+                    .map(r -> r.getName())
+                    .collect(Collectors.joining("\n"));
 
 
             return new Result(rezMsg);
@@ -920,16 +921,13 @@ public class GitRepositoryService {
             if (te.getMessage().contains(Const.Msg.TRANSPORT_SSL_ISSUE)) {
 
                 try (Git g = new Git(repository)) {
-                    StoredConfig fbcOrig = g.getRepository().getConfig();
-                    fbcOrig.setBoolean(Const.Config.HTTP, null, Const.Config.SLL_VERIFY, false);
-                    fbcOrig.save();
+                    configureSslChecks(g.getRepository().getConfig());
                 }
 
                 return remoteRepositoryFetch(
                         remoteBranch,
                         userName, password,
-                        progressMonitor
-                );
+                        progressMonitor);
             } else {
                 log.log(Level.WARNING,
                         MessageFormat.format("Fetch {0} error {1}", remoteBranch, te.getMessage()));
@@ -950,6 +948,43 @@ public class GitRepositoryService {
             return new Result(Result.Code.ERROR, e.getMessage());
         }
 
+    }
+
+    /**
+     * Pull changes.
+     *
+     * @param repoInfo repoInfo
+     * @return result of opertion
+     * @throws Exception
+     */
+    public Result remoteRepositoryPull(final String remoteBranch,
+                                       final String userName, final String password,
+                                       final ProgressMonitor progressMonitor) {
+
+        try (Git git = new Git(repository)) {
+
+            PullCommand pullCommand = git
+                    .pull()
+                    .setRemoteBranchName(remoteBranch)
+                    .setProgressMonitor(progressMonitor);
+            configureCredentialProvider(pullCommand, userName, password);
+
+            PullResult pullRez = pullCommand.call();
+            if (pullRez.isSuccessful()) {
+                return new Result(pullRez.getMergeResult().getMergeStatus().toString());
+            }
+            return new Result(Result.Code.ERROR, pullRez.toString());
+        } catch (CheckoutConflictException conflictException) {
+            conflictException.printStackTrace();
+            return new Result("Pull conflict error" + conflictException.getMessage());
+
+        } catch (Exception e) {
+            if (processExeption) {
+                return processError(e);
+            } else {
+                return new Result(Result.Code.CANCEL, "User cancel operation .");
+            }
+        }
     }
 
 
@@ -1021,6 +1056,11 @@ public class GitRepositoryService {
                     new UsernamePasswordCredentialsProvider(userName, password)
             );
         }
+    }
+
+    private void configureSslChecks(StoredConfig fbcOrig) throws IOException {
+        fbcOrig.setBoolean(Const.Config.HTTP, null, Const.Config.SLL_VERIFY, false);
+        fbcOrig.save();
     }
 
     //-------------------------------------------------------------------------------------------
@@ -1226,45 +1266,7 @@ public class GitRepositoryService {
     }
 
 
-    /**
-     * Pull changes.
-     *
-     * @param repoInfo repoInfo
-     * @return result of opertion
-     * @throws Exception
-     */
-    public Result remoteRepositoryPull(final String shortRemoteBranch,
-                                       final GitemberProjectSettings repoInfo,
-                                       final ProgressMonitor progressMonitor,
-                                       final boolean processExeption) {
-        log.log(Level.INFO, MessageFormat.format("Pull {0} ", shortRemoteBranch));
 
-        try (Git git = new Git(repository)) {
-
-            PullCommand pullCommand = git.pull()
-                    .setProgressMonitor(progressMonitor);
-            configureTransportCommand(pullCommand, repoInfo);
-            if (shortRemoteBranch != null) {
-                pullCommand.setRemoteBranchName(Constants.R_HEADS + shortRemoteBranch);
-            }
-
-            PullResult pullRez = pullCommand.call();
-            if (pullRez.isSuccessful()) {
-                return new Result(pullRez.getMergeResult().getMergeStatus().toString());
-            }
-            return new Result(Result.Code.ERROR, pullRez.toString());
-        } catch (CheckoutConflictException conflictException) {
-            conflictException.printStackTrace();
-            return new Result("Pull conflict error" + conflictException.getMessage());
-
-        } catch (Exception e) {
-            if (processExeption) {
-                return processError(e);
-            } else {
-                return new Result(Result.Code.CANCEL, "User cancel operation .");
-            }
-        }
-    }
 
     private Result fetchRepository(final String reporitoryUrl, final String folder,
                                    final String userName, final String password,

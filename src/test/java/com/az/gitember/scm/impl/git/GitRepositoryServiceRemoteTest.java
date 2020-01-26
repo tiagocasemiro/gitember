@@ -30,12 +30,14 @@ import static org.junit.Assert.*;
 public class GitRepositoryServiceRemoteTest {
 
     private static String MORE_FILE0 = "file0.txt";
+    private static String MORE_FILE1 = "file1.txt";
     private static String README_FILE = "README.md";
     private static String IGNORE_FILE = ".gitignore";
 
     private static String RN_RBR1 = "refs/remotes/origin/rbr1";
     private static String FN_RBR1 = "refs/heads/rbr1";
     private static String FN_MASTER = "refs/heads/master";
+    private static String RN_MASTER = "remotes/origin/master";
 
     private String remoteGitProject = null;
     private Path remoteGitProjectPath = null;
@@ -207,6 +209,8 @@ public class GitRepositoryServiceRemoteTest {
         );
 
         assertEquals(Result.Code.OK, rez.getCode());
+        clonedRepositoryService.getAllFiles(RN_RBR1);
+        clonedRepositoryService.getAllFiles(FN_RBR1);
         assertEquals(expectedFiles, clonedRepositoryService.getAllFiles(RN_RBR1).size());
 
 
@@ -234,14 +238,10 @@ public class GitRepositoryServiceRemoteTest {
 
         Files.write(Paths.get(clonedRepoPath, MORE_FILE0),
                 "test file 0 to br1".getBytes(), StandardOpenOption.CREATE);
-
         DirCache dc = clonedRepositoryService.addFileToCommitStage( Paths.get(MORE_FILE0).toString() );
-
         clonedRepositoryService.commit("File 0 added");
-
         //local master to remote rbr1
         RefSpec refSpec = new RefSpec(FN_MASTER + ":" + FN_RBR1);
-
         Result rez = clonedRepositoryService.remoteRepositoryPush(
                 refSpec,
                 defaultUser, defaultPassword,
@@ -250,8 +250,33 @@ public class GitRepositoryServiceRemoteTest {
         );
         assertEquals(Result.Code.OK, rez.getCode());
         assertEquals(3, remoteRepositoryService.getAllFiles(FN_RBR1).size());
+    }
+
+    @Test
+    public void remoteRepositoryPull() throws Exception {
+
+        testClone();
+
+        Files.write(Paths.get(remoteGitProject, MORE_FILE1),
+                "Added to remote master".getBytes(), StandardOpenOption.CREATE);
+        DirCache dc = remoteRepositoryService.addFileToCommitStage( Paths.get(MORE_FILE1).toString() );
+        remoteRepositoryService.commit("File 0 added to remote repo");
+
+        Result rr = clonedRepositoryService.remoteRepositoryPull(
+                RN_RBR1,
+                defaultUser, defaultPassword,
+                null
+        );
 
 
+        rr = clonedRepositoryService.remoteRepositoryPull(
+                FN_RBR1,
+                defaultUser, defaultPassword,
+                null
+        );
+
+
+        System.out.println("failed");
 
     }
 

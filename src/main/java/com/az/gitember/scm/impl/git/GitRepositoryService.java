@@ -877,8 +877,8 @@ public class GitRepositoryService {
      * //http://stackoverflow.com/questions/16319807/determine-if-a-branch-is-remote-or-local-using-jgit
      * //http://stackoverflow.com/questions/12927163/jgit-checkout-a-remote-branch
      *
-     * @param remoteBranch optional short name on remote repo,
-     *                          i.e. without ref/heads/ prefix, if not provided command will fetch all
+     * @param remoteBranch optional name on remote repo,
+     *                          i.e. with ref/heads/ prefix, if not provided command will fetch all
      * @param progressMonitor   optional progress
      * @return result of operation
      * todo is srorn name or long need to use ?
@@ -953,7 +953,8 @@ public class GitRepositoryService {
     /**
      * Pull changes.
      *
-     * @param repoInfo repoInfo
+     * @param remoteBranch optional name on remote repo,
+     *                          i.e. with ref/heads/ prefix, if not provided command will fetch all
      * @return result of opertion
      * @throws Exception
      */
@@ -975,15 +976,13 @@ public class GitRepositoryService {
             }
             return new Result(Result.Code.ERROR, pullRez.toString());
         } catch (CheckoutConflictException conflictException) {
-            conflictException.printStackTrace();
+            conflictException.printStackTrace(); // todo test
             return new Result("Pull conflict error" + conflictException.getMessage());
 
         } catch (Exception e) {
-            if (processExeption) {
-                return processError(e);
-            } else {
-                return new Result(Result.Code.CANCEL, "User cancel operation .");
-            }
+            log.log(Level.WARNING,
+                    MessageFormat.format("Not pulled {0} ", e.getMessage()));
+            return new Result(Result.Code.ERROR, e.getMessage());
         }
     }
 

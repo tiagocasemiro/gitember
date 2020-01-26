@@ -481,7 +481,9 @@ public class GitemberServiceImpl {
                         )
                 );
 
-                try {
+                //TODO
+
+               /* try {
                     gitRepositoryService.remoteRepositoryPull(
                             localBranchName, repositoryLoginInfo, new DefaultProgressMonitor((t, d) -> {
                                 updateTitle(t);
@@ -491,7 +493,7 @@ public class GitemberServiceImpl {
                     //
                 } catch (Exception e) {
 
-                }
+                }*/
 
                 return operationValue;
             }
@@ -687,8 +689,9 @@ public class GitemberServiceImpl {
     }
 
     public void pull(final String branchName) {
+        //TODO
         
-        Task<Result> longTask = new Task<Result>() {
+        /*Task<Result> longTask = new Task<Result>() {
             @Override
             protected Result call() {
                 return remoteRepositoryOperation(
@@ -704,7 +707,7 @@ public class GitemberServiceImpl {
             }
         };
         prepareLongTask(longTask, null, null);
-        new Thread(longTask).start();
+        new Thread(longTask).start();*/
     }
 
     public void pushAll() {
